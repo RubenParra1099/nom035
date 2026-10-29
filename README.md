@@ -35,7 +35,7 @@ Para validar el motor contra los archivos reales (no se versionan por confidenci
 
 1. Sube el repositorio a GitHub e impórtalo en Vercel (framework: Next.js).
 2. Crea la base de datos: **Vercel → Storage → Neon (Postgres)**, o una base en neon.tech. Usa la URL *pooled* en `DATABASE_URL` y la directa en `DIRECT_URL`.
-3. Variables de entorno en Vercel: `DATABASE_URL`, `DIRECT_URL`, `AUTH_SECRET` (`openssl rand -base64 32`).
+3. Variables de entorno en Vercel (marca **Production** y **Preview**): `AUTH_SECRET` (`openssl rand -base64 32`). Si conectaste Neon desde Storage, la URL se toma sola (`DATABASE_URL`, `DATABASE_URL_UNPOOLED` o `POSTGRES_URL*`); si no, define `DATABASE_URL` y `DIRECT_URL` a mano.
 4. Build command: `npm run vercel-build` (aplica migraciones y compila).
 5. Crea el primer administrador desde tu equipo apuntando a la base de producción:
    `SEED_ADMIN_EMAIL=… SEED_ADMIN_PASSWORD=… DATABASE_URL=… npx tsx scripts/seed.ts`
