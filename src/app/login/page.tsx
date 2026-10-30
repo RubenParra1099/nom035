@@ -20,6 +20,7 @@ export default function LoginPage() {
           <input className="input" id="password" name="password" type="password" required autoComplete="current-password" />
         </div>
         {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
+        <p className="text-xs text-gray-500">¿Primera vez? Si aún no hay usuarios, al intentar entrar se abrirá la configuración del administrador.</p>
         <button className="btn-primary w-full" disabled={pending}>{pending ? "Entrando…" : "Entrar"}</button>
       </form>
     </main>
