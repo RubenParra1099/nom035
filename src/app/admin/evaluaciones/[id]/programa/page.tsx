@@ -1,4 +1,4 @@
-import Link from "next/link";
+import EvalHeader from "@/components/EvalHeader";
 import { notFound } from "next/navigation";
 import { asc, eq } from "drizzle-orm";
 import { db, schema } from "@/db";
@@ -9,7 +9,8 @@ import { INTERVENTIONS } from "@/lib/nom035/interventions";
 import ConfirmButton from "@/components/ConfirmButton";
 import { addAction, deleteAction, setActionDone } from "../../../gestion-actions";
 
-const HEX: Record<Level, string> = { NULO: "#2bb3c0", BAJO: "#34a853", MEDIO: "#f6c026", ALTO: "#f28c28", MUY_ALTO: "#e53935" };
+const HEX: Record<Level, string> = { NULO: "var(--lv-nulo)", BAJO: "var(--lv-bajo)", MEDIO: "var(--lv-medio)", ALTO: "var(--lv-alto)", MUY_ALTO: "var(--lv-muyalto)" };
+const INK: Record<Level, string> = { NULO: "var(--lv-nulo-ink)", BAJO: "var(--lv-bajo-ink)", MEDIO: "var(--lv-medio-ink)", ALTO: "var(--lv-alto-ink)", MUY_ALTO: "var(--lv-muyalto-ink)" };
 
 export default async function ProgramPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -32,11 +33,9 @@ export default async function ProgramPage({ params }: { params: Promise<{ id: st
 
   return (
     <div className="space-y-6">
-      <div>
-        <Link href={`/admin/evaluaciones/${id}`} className="text-sm text-gray-500 hover:underline">← {ev.name}</Link>
-        <h1 className="text-2xl font-semibold">Programa de intervención</h1>
-        <p className="max-w-3xl text-sm text-gray-600">{ev.workplace.company.name} · {ev.workplace.name}. Numeral 8.4: áreas y trabajadores sujetos, acciones, fechas, responsable y control de avances. Alimenta los indicadores CPI y EDI.</p>
-      </div>
+      <EvalHeader ev={{ id: ev.id, name: ev.name, guide: ev.guide, includeGuideI: ev.includeGuideI, workplaceId: ev.workplaceId, workplaceName: ev.workplace.name, companyId: ev.workplace.companyId, companyName: ev.workplace.company.name }}
+        active="programa" canSeeConfidential={s.role !== "CLIENTE"} title="Programa de intervención"
+        subtitle="Numeral 8.4: acciones, responsables, fechas y control de avances. Alimenta los indicadores CPI y EDI." />
 
       <div className="grid gap-4 sm:grid-cols-4">
         {[["Acciones", actions.length], ["Concluidas", done], ["Vencidas sin concluir", dueActs.filter((a) => !a.doneAt).length], ["Cumplimiento a tiempo (CPI)", cpi === null ? "—" : `${cpi}%`]].map(([l, v]) => (
@@ -51,7 +50,7 @@ export default async function ProgramPage({ params }: { params: Promise<{ id: st
           {priority.map((d) => (
             <div key={d.name} className="rounded-lg border border-gray-200 p-3">
               <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
-                <span className="rounded-full px-2 py-0.5 text-[11px]" style={{ background: HEX[d.level], color: d.level === "MEDIO" ? "#1f2937" : "#fff" }}>{LEVEL_LABEL[d.level]}</span>
+                <span className="rounded-full px-2 py-0.5 text-[11px]" style={{ background: HEX[d.level], color: INK[d.level] }}>{LEVEL_LABEL[d.level]}</span>
                 {d.name} <span className="font-normal text-gray-500">· {d.mean.toFixed(1)} pts</span>
               </div>
               <ul className="space-y-1.5">

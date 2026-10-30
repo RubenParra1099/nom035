@@ -240,7 +240,7 @@ function SectionTitle({ title, subtitle }: { title: string; subtitle?: string })
 function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
     <button type="button" onClick={onClick} aria-pressed={active}
-      className={`rounded-lg border px-3 py-2.5 text-sm transition ${active ? "border-brand-600 bg-brand-600 text-white" : "border-gray-300 bg-white text-gray-800 hover:border-brand-600"}`}>
+      className={`rounded-lg border px-3 py-2.5 text-sm transition ${active ? "border-brand-600 bg-brand-600 text-white" : "border-gray-300 bg-surface text-gray-800 hover:border-brand-600"}`}>
       {children}
     </button>
   );

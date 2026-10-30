@@ -114,7 +114,7 @@ export async function loadDashboard(evaluationId: string) {
     evaluation: {
       id: ev.id, name: ev.name, guide: ev.guide, includeGuideI: ev.includeGuideI,
       company: ev.workplace.company.name, workplace: ev.workplace.name, headcount: ev.workplace.headcount,
-      companyId: ev.workplace.companyId,
+      companyId: ev.workplace.companyId, workplaceId: ev.workplaceId,
     },
     records,
     previous,

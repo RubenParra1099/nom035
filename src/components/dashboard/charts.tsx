@@ -4,13 +4,13 @@ import { LEVELS, LEVEL_LABEL, type Level } from "@/lib/nom035/guides";
 
 /* ---------- Colores ---------- */
 export const LEVEL_HEX: Record<Level, string> = {
-  NULO: "#2bb3c0", BAJO: "#34a853", MEDIO: "#f6c026", ALTO: "#f28c28", MUY_ALTO: "#e53935",
+  NULO: "var(--lv-nulo)", BAJO: "var(--lv-bajo)", MEDIO: "var(--lv-medio)", ALTO: "var(--lv-alto)", MUY_ALTO: "var(--lv-muyalto)",
 };
 export const LEVEL_TEXT: Record<Level, string> = {
-  NULO: "#ffffff", BAJO: "#ffffff", MEDIO: "#1f2937", ALTO: "#ffffff", MUY_ALTO: "#ffffff",
+  NULO: "var(--lv-nulo-ink)", BAJO: "var(--lv-bajo-ink)", MEDIO: "var(--lv-medio-ink)", ALTO: "var(--lv-alto-ink)", MUY_ALTO: "var(--lv-muyalto-ink)",
 };
 /** Respuestas por riesgo (0 = sin riesgo … 4 = máximo riesgo): escala divergente, distinta del semáforo. */
-export const RISK_HEX = ["#0f766e", "#5eada5", "#cbd5e1", "#e9967a", "#b4232a"];
+export const RISK_HEX = ["var(--risk-0)", "var(--risk-1)", "var(--risk-2)", "var(--risk-3)", "var(--risk-4)"];
 export const RISK_LABEL = ["Sin riesgo (0)", "Riesgo bajo (1)", "Intermedio (2)", "Riesgo alto (3)", "Máximo riesgo (4)"];
 
 type Cuts = readonly [number, number, number, number];
@@ -44,7 +44,7 @@ export function TipProvider({ children }: { children: React.ReactNode }) {
       {children}
       {tip && (
         <div ref={ref} role="tooltip"
-          className="pointer-events-none fixed z-50 max-w-xs rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs text-gray-800 shadow-lg"
+          className="pointer-events-none fixed z-50 max-w-xs rounded-lg border border-line bg-surface px-3 py-2 text-xs text-ink shadow-lg"
           style={{ left: Math.min(tip.x + 14, w - 300), top: tip.y + 14 }}>
           {tip.node}
         </div>
@@ -71,15 +71,15 @@ export function Gauge({ value, cuts, max, prev }: { value: number; cuts: Cuts; m
   return (
     <svg viewBox={`0 0 ${W} 150`} className="w-full max-w-[300px]" role="img" aria-label={`Calificación ${fmt1(value)}, nivel ${LEVEL_LABEL[lvl]}`}>
       {LEVELS.map((l, i) => (
-        <path key={l} d={arc(edges[i] + (i ? top * 0.004 : 0), edges[i + 1])} fill={LEVEL_HEX[l]} opacity={l === lvl ? 1 : 0.35}
+        <path key={l} d={arc(edges[i] + (i ? top * 0.004 : 0), edges[i + 1])} style={{ fill: LEVEL_HEX[l] }} opacity={l === lvl ? 1 : 0.3}
           onMouseMove={(e) => show(e, <><b>{LEVEL_LABEL[l]}</b><br />{i === 0 ? `menor a ${cuts[0]}` : i === 4 ? `${cuts[3]} o más` : `${edges[i]} a < ${edges[i + 1]}`}</>)}
           onMouseLeave={hide} />
       ))}
-      {prev !== undefined && (() => { const [a, b] = pt(prev, R + 4), [c, d] = pt(prev, R - th - 4); return <line x1={a} y1={b} x2={c} y2={d} stroke="#111827" strokeWidth={2} strokeDasharray="3 2" />; })()}
-      <line x1={cx} y1={cy} x2={nx} y2={ny} stroke="#111827" strokeWidth={3} strokeLinecap="round" />
-      <circle cx={cx} cy={cy} r={6} fill="#111827" />
-      {cuts.map((c) => { const [x, y] = pt(c, R + 10); return <text key={c} x={x} y={y} fontSize={9} textAnchor="middle" fill="#6b7280">{c}</text>; })}
-      <text x={cx} y={cy + 28} textAnchor="middle" fontSize={22} fontWeight={700} fill="#111827">{fmt1(value)}</text>
+      {prev !== undefined && (() => { const [a, b] = pt(prev, R + 4), [c, d] = pt(prev, R - th - 4); return <line x1={a} y1={b} x2={c} y2={d} style={{ stroke: "var(--ink)" }} strokeWidth={2} strokeDasharray="3 2" />; })()}
+      <line x1={cx} y1={cy} x2={nx} y2={ny} style={{ stroke: "var(--ink)" }} strokeWidth={3} strokeLinecap="round" />
+      <circle cx={cx} cy={cy} r={6} style={{ fill: "var(--ink)" }} />
+      {cuts.map((c) => { const [x, y] = pt(c, R + 10); return <text key={c} x={x} y={y} fontSize={9} textAnchor="middle" style={{ fill: "var(--muted)" }}>{c}</text>; })}
+      <text x={cx} y={cy + 28} textAnchor="middle" fontSize={22} fontWeight={700} style={{ fill: "var(--ink)" }}>{fmt1(value)}</text>
     </svg>
   );
 }
@@ -102,12 +102,12 @@ export function LevelDonut({ dist, total, label }: { dist: Record<Level, number>
   return (
     <div className="flex flex-wrap items-center gap-4">
       <svg viewBox="0 0 160 160" className="h-40 w-40 shrink-0" role="img" aria-label={label}>
-        {segs.length === 1 ? <circle cx={c} cy={c} r={(R + r) / 2} fill="none" stroke={LEVEL_HEX[segs[0].l]} strokeWidth={R - r} /> :
+        {segs.length === 1 ? <circle cx={c} cy={c} r={(R + r) / 2} fill="none" style={{ stroke: LEVEL_HEX[segs[0].l] }} strokeWidth={R - r} /> :
           segs.map(({ l, d }) => (
-            <path key={l} d={d} fill={LEVEL_HEX[l]} onMouseMove={(e) => show(e, <><b>{LEVEL_LABEL[l]}</b>: {dist[l]} trabajadores ({pct(dist[l], total)}%)</>)} onMouseLeave={hide} />
+            <path key={l} d={d} style={{ fill: LEVEL_HEX[l] }} onMouseMove={(e) => show(e, <><b>{LEVEL_LABEL[l]}</b>: {dist[l]} trabajadores ({pct(dist[l], total)}%)</>)} onMouseLeave={hide} />
           ))}
-        <text x={c} y={c - 2} textAnchor="middle" fontSize={22} fontWeight={700} fill="#111827">{pct(hi, total)}%</text>
-        <text x={c} y={c + 14} textAnchor="middle" fontSize={9} fill="#6b7280">alto + muy alto</text>
+        <text x={c} y={c - 2} textAnchor="middle" fontSize={22} fontWeight={700} style={{ fill: "var(--ink)" }}>{pct(hi, total)}%</text>
+        <text x={c} y={c + 14} textAnchor="middle" fontSize={9} style={{ fill: "var(--muted)" }}>alto + muy alto</text>
       </svg>
       <ul className="space-y-1 text-sm">
         {LEVELS.map((l) => (
@@ -156,11 +156,11 @@ export function Radar({ axes, compare }: { axes: { label: string; value: number;
   const poly = (vals: number[]) => vals.map((v, i) => p(i, v).join(",")).join(" ");
   return (
     <svg viewBox={`-120 -14 ${S + 240} ${S + 28}`} className="mx-auto w-full max-w-[560px]" role="img" aria-label="Radar de dominios">
-      {[1, 2, 3, 4, 5].map((k) => <polygon key={k} points={poly(Array(n).fill(k))} fill="none" stroke="#e5e7eb" />)}
-      {axes.map((_, i) => { const [x, y] = p(i, 5); return <line key={i} x1={c} y1={c} x2={x} y2={y} stroke="#e5e7eb" />; })}
-      {[1, 2, 3, 4].map((k) => { const [x, y] = p(0, k); return <text key={k} x={x + 3} y={y + 3} fontSize={8} fill="#9ca3af">{["Bajo", "Medio", "Alto", "M. alto"][k - 1]}</text>; })}
-      {compare && <polygon points={poly(compare)} fill="none" stroke="#6b7280" strokeWidth={1.5} strokeDasharray="4 3" />}
-      <polygon points={poly(axes.map((a) => a.value))} fill="#1d4ed8" fillOpacity={0.15} stroke="#1d4ed8" strokeWidth={2} />
+      {[1, 2, 3, 4, 5].map((k) => <polygon key={k} points={poly(Array(n).fill(k))} fill="none" style={{ stroke: "var(--line)" }} />)}
+      {axes.map((_, i) => { const [x, y] = p(i, 5); return <line key={i} x1={c} y1={c} x2={x} y2={y} style={{ stroke: "var(--line)" }} />; })}
+      {[1, 2, 3, 4].map((k) => { const [x, y] = p(0, k); return <text key={k} x={x + 3} y={y + 3} fontSize={8} style={{ fill: "var(--faint)" }}>{["Bajo", "Medio", "Alto", "M. alto"][k - 1]}</text>; })}
+      {compare && <polygon points={poly(compare)} fill="none" style={{ stroke: "var(--muted)" }} strokeWidth={1.5} strokeDasharray="4 3" />}
+      <polygon points={poly(axes.map((a) => a.value))} style={{ fill: "var(--brand)", stroke: "var(--brand)" }} fillOpacity={0.15} strokeWidth={2} />
       {axes.map((a, i) => {
         const [x, y] = p(i, a.value);
         const [lx, ly] = p(i, 5.6);
@@ -168,9 +168,9 @@ export function Radar({ axes, compare }: { axes: { label: string; value: number;
         for (const w of words) { const l = lines[lines.length - 1]; if (l && (l + " " + w).length <= 20) lines[lines.length - 1] = l + " " + w; else lines.push(w); }
         return (
           <g key={a.label}>
-            <circle cx={x} cy={y} r={5} fill={LEVEL_HEX[a.level]} stroke="#fff" strokeWidth={2}
+            <circle cx={x} cy={y} r={5} style={{ fill: LEVEL_HEX[a.level], stroke: "var(--surface)" }} strokeWidth={2}
               onMouseMove={(e) => show(e, <><b>{a.label}</b><br />{a.raw} · {LEVEL_LABEL[a.level]}</>)} onMouseLeave={hide} />
-            <text x={lx} y={ly - ((lines.length - 1) * 11) / 2} fontSize={10} textAnchor={Math.abs(lx - c) < 10 ? "middle" : lx > c ? "start" : "end"} dominantBaseline="middle" fill="#374151">
+            <text x={lx} y={ly - ((lines.length - 1) * 11) / 2} fontSize={10} textAnchor={Math.abs(lx - c) < 10 ? "middle" : lx > c ? "start" : "end"} dominantBaseline="middle" style={{ fill: "var(--ink-2)" }}>
               {lines.map((t, k) => <tspan key={k} x={lx} dy={k ? 11 : 0}>{t}</tspan>)}
             </text>
           </g>

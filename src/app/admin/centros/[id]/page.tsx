@@ -4,6 +4,7 @@ import { desc, eq } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { canEdit, canSeeCompany, requireUser } from "@/lib/auth";
 import ConfirmButton from "@/components/ConfirmButton";
+import EvalHeader from "@/components/EvalHeader";
 import { addComplaint, addTraining, deleteComplaint, deleteTraining, updateComplaint } from "../../gestion-actions";
 
 const CAT = { VIOLENCIA: "Violencia laboral", ENTORNO: "Entorno organizacional", CARGA: "Carga / jornada", OTRO: "Otro" } as const;
@@ -11,12 +12,15 @@ const TOPIC = { POLITICA: "Política de prevención", VIOLENCIA: "Violencia labo
 const STATUS = { RECIBIDA: "Recibida", EN_INVESTIGACION: "En investigación", CERRADA: "Cerrada" } as const;
 const days = (a: string, b: string) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
 
-export default async function WorkplacePage({ params }: { params: Promise<{ id: string }> }) {
+export default async function WorkplacePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ ev?: string }> }) {
   const { id } = await params;
+  const { ev: evId } = await searchParams;
   const s = await requireUser();
   const wp = await db.query.workplaces.findFirst({ where: eq(schema.workplaces.id, id), with: { company: true, evaluations: true } });
   if (!wp || !canSeeCompany(s, wp.companyId)) notFound();
   const edit = canEdit(s);
+  const ctx = wp.evaluations.find((e) => e.id === evId) ?? [...wp.evaluations].sort((a, b) => +b.createdAt - +a.createdAt)[0];
+  const intro = "Buzón de quejas y capacitación del centro de trabajo; alimentan los indicadores de efectividad.";
   const [complaints, trainings] = await Promise.all([
     db.query.complaints.findMany({ where: eq(schema.complaints.workplaceId, id), orderBy: [desc(schema.complaints.receivedAt)] }),
     db.query.trainings.findMany({ where: eq(schema.trainings.workplaceId, id), orderBy: [desc(schema.trainings.heldAt)] }),
@@ -36,11 +40,19 @@ export default async function WorkplacePage({ params }: { params: Promise<{ id: 
 
   return (
     <div className="space-y-6">
-      <div>
-        <Link href={`/admin/empresas/${wp.companyId}`} className="text-sm text-gray-500 hover:underline">← {wp.company.name}</Link>
-        <h1 className="text-2xl font-semibold">Gestión preventiva · {wp.name}</h1>
-        <p className="max-w-3xl text-sm text-gray-600">Registros que alimentan los indicadores de efectividad (buzón de quejas y capacitación). El programa de intervención y el seguimiento de casos de Guía I se llevan en cada evaluación.</p>
-      </div>
+      {ctx ? (
+        <EvalHeader ev={{ id: ctx.id, name: ctx.name, guide: ctx.guide, includeGuideI: ctx.includeGuideI, workplaceId: wp.id, workplaceName: wp.name, companyId: wp.companyId, companyName: wp.company.name }}
+          active="gestion" canSeeConfidential={s.role !== "CLIENTE"} title={`Gestión preventiva · ${wp.name}`} subtitle={intro} />
+      ) : (
+        <div className="space-y-1">
+          <nav aria-label="Ruta" className="flex flex-wrap items-center gap-1.5 text-sm text-gray-500">
+            <Link href="/admin" className="hover:text-gray-900">Empresas</Link><span aria-hidden>›</span>
+            <Link href={`/admin/empresas/${wp.companyId}`} className="hover:text-gray-900">{wp.company.name}</Link><span aria-hidden>›</span><span>{wp.name}</span>
+          </nav>
+          <h1 className="text-2xl font-semibold tracking-tight">Gestión preventiva · {wp.name}</h1>
+          <p className="max-w-3xl text-sm text-gray-500">{intro}</p>
+        </div>
+      )}
 
       <section className="card space-y-4 p-5">
         <div className="flex flex-wrap items-end justify-between gap-3">

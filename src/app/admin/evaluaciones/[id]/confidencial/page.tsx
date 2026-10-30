@@ -1,4 +1,4 @@
-import Link from "next/link";
+import EvalHeader from "@/components/EvalHeader";
 import { notFound } from "next/navigation";
 import { and, desc, eq, or } from "drizzle-orm";
 import { db, schema } from "@/db";
@@ -36,12 +36,9 @@ export default async function ConfidentialPage({ params }: { params: Promise<{ i
 
   return (
     <div className="space-y-6">
-      <div>
-        <Link href={`/admin/evaluaciones/${id}`} className="text-sm text-gray-500 hover:underline">← {ev.name}</Link>
-        <h1 className="text-2xl font-semibold">Seguimiento confidencial · Guía I</h1>
-        <p className="max-w-3xl text-sm text-gray-600">Información restringida a administradores y consultores. Los trabajadores que requieren valoración clínica
-          deben canalizarse a atención médica o psicológica (numerales 5.4 y 8.1). Los nombres nunca aparecen en los indicadores; los KPIs solo usan estados y fechas.</p>
-      </div>
+      <EvalHeader ev={{ id: ev.id, name: ev.name, guide: ev.guide, includeGuideI: ev.includeGuideI, workplaceId: ev.workplaceId, workplaceName: ev.workplace.name, companyId: ev.workplace.companyId, companyName: ev.workplace.company.name }}
+        active="guia1" canSeeConfidential title="Seguimiento confidencial · Guía I"
+        subtitle="Restringido a administradores y consultores. Canaliza a atención médica o psicológica a quien lo requiera (numerales 5.4 y 8.1); los nombres nunca aparecen en los indicadores." />
 
       <div className="grid gap-4 sm:grid-cols-4">
         <div className="card p-4"><div className="text-xs text-gray-500">Requieren valoración clínica</div><div className="text-2xl font-bold tabular-nums text-red-600">{cases.length}</div></div>

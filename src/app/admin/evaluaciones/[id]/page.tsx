@@ -8,6 +8,7 @@ import { canEdit, canSeeCompany, requireUser } from "@/lib/auth";
 import { requiredGuide, sampleSize } from "@/lib/nom035/score";
 import { deleteEvaluation, deleteImportedResponses, setEvaluationStatus, updateEvaluation } from "../../actions";
 import Importer from "./Importer";
+import EvalHeader from "@/components/EvalHeader";
 import ConfirmButton from "@/components/ConfirmButton";
 import CopyField from "@/components/CopyField";
 
@@ -39,19 +40,13 @@ export default async function EvaluationPage({ params }: { params: Promise<{ id:
 
   return (
     <div className="space-y-6">
-      <div>
-        <Link href={`/admin/empresas/${ev.workplace.companyId}`} className="text-sm text-gray-500 hover:underline">← {ev.workplace.company.name} · {ev.workplace.name}</Link>
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-semibold">{ev.name}</h1>
-          <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium">{ev.guide === "GUIA_III" ? "Guía III · 72 reactivos" : "Guía II · 46 reactivos"}</span>
-          {ev.includeGuideI && <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium">+ Guía I</span>}
-        </div>
-        {rg && rg !== ev.guide && (
-          <p className="mt-2 rounded-lg bg-amber-50 p-2 text-sm text-amber-800">
-            Con {N} trabajadores corresponde aplicar la {rg === "GUIA_III" ? "Guía III" : "Guía II"}.
-          </p>
-        )}
-      </div>
+      <EvalHeader ev={{ id: ev.id, name: ev.name, guide: ev.guide, includeGuideI: ev.includeGuideI, workplaceId: ev.workplaceId, workplaceName: ev.workplace.name, companyId: ev.workplace.companyId, companyName: ev.workplace.company.name }}
+        active="evaluacion" canSeeConfidential={s.role !== "CLIENTE"} subtitle="Captura de respuestas, enlace del cuestionario e importación" />
+      {rg && rg !== ev.guide && (
+        <p className="rounded-lg bg-amber-50 p-2 text-sm text-amber-800">
+          Con {N} trabajadores corresponde aplicar la {rg === "GUIA_III" ? "Guía III" : "Guía II"}.
+        </p>
+      )}
 
       <div className="grid gap-4 md:grid-cols-4">
         <div className="card p-4"><div className="text-xs text-gray-500">Respuestas</div><div className="text-3xl font-semibold">{stats.total}</div>
@@ -65,10 +60,7 @@ export default async function EvaluationPage({ params }: { params: Promise<{ id:
       </div>
 
       <div className="flex flex-wrap gap-3">
-        <Link className="btn-primary" href={`/admin/evaluaciones/${id}/indicadores`}>Ver indicadores y semáforo</Link>
-        <Link className="btn-secondary" href={`/admin/evaluaciones/${id}/programa`}>Programa de intervención</Link>
-        <Link className="btn-secondary" href={`/admin/centros/${ev.workplaceId}`}>Quejas y capacitación</Link>
-        {s.role !== "CLIENTE" && <Link className="btn-secondary" href={`/admin/evaluaciones/${id}/confidencial`}>Seguimiento confidencial (Guía I)</Link>}
+        <Link className="btn-primary" href={`/admin/evaluaciones/${id}/indicadores`}>Abrir tablero e indicadores →</Link>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">

@@ -36,7 +36,7 @@ const TABS = [
 type TabId = (typeof TABS)[number]["id"];
 
 const PHYS_ORDER = ["Muy Bien", "Bien", "Regular", "Mal", "Muy Mal"];
-const PHYS_HEX = ["#0f766e", "#5eada5", "#cbd5e1", "#e9967a", "#b4232a"];
+const PHYS_HEX = ["var(--risk-0)", "var(--risk-1)", "var(--risk-2)", "var(--risk-3)", "var(--risk-4)"];
 const ORDINAL: Record<string, string[]> = {
   edad: ["15-19", "20-24", "25-29", "30-34", "35-39", "40-44", "45-49", "50-54", "55-59", "60-64", "65-69", "70 o más"],
   tiempoPuesto: ["Menos de 6 meses", "Entre 6 meses y 1 año", "Entre 1 y 4 años", "Entre 5 y 9 años", "Entre 10 y 14 años", "Entre 15 y 19 años", "Entre 20 y 24 años", "25 años o más"],
@@ -110,10 +110,10 @@ function DashboardInner({ evaluation: ev, records, previous, intervention, dimen
         clear={(k) => setFilters((f) => (k ? { ...f, [k]: [] } : {}))} n={n} total={records.length}
         previous={previous} compareId={compareId} setCompareId={setCompareId} />
 
-      <nav className="flex gap-1 overflow-x-auto border-b border-gray-200 print:hidden" role="tablist">
+      <nav className="flex gap-1 overflow-x-auto rounded-xl bg-gray-100 p-1 print:hidden" role="tablist">
         {TABS.filter((t) => t.id !== "guia1" || ev.includeGuideI || records.some((r) => Object.keys(r.p).length)).map((t) => (
           <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)}
-            className={`whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium ${tab === t.id ? "border-brand-600 text-brand-700" : "border-transparent text-gray-500 hover:text-gray-800"}`}>
+            className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition ${tab === t.id ? "bg-surface text-ink shadow-sm" : "text-gray-500 hover:text-gray-800"}`}>
             {t.label}
           </button>
         ))}
@@ -147,6 +147,7 @@ function FilterBar({ dimensions, records, filters, match, toggle, clear, n, tota
   previous: PrevRaw[]; compareId: string; setCompareId: (s: string) => void;
 }) {
   const [open, setOpen] = useState<string | null>(null);
+  const [mobile, setMobile] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(null); };
@@ -158,7 +159,12 @@ function FilterBar({ dimensions, records, filters, match, toggle, clear, n, tota
   return (
     <div ref={ref} className="card z-20 space-y-2 p-3 md:sticky md:top-0 print:static">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Filtros</span>
+        <span className="hidden text-xs font-semibold uppercase tracking-wide text-gray-500 md:inline">Filtros</span>
+        <button type="button" onClick={() => setMobile((m) => !m)} aria-expanded={mobile}
+          className="inline-flex items-center gap-1.5 rounded-full border border-gray-300 px-3 py-1 text-sm text-gray-700 md:hidden">
+          Filtros{chips.length > 0 && <span className="rounded-full bg-brand-600 px-1.5 text-[11px] text-white">{chips.length}</span>} <span aria-hidden className="text-gray-400">{mobile ? "▴" : "▾"}</span>
+        </button>
+        <div className={`${mobile ? "flex" : "hidden"} w-full flex-wrap gap-2 md:contents`}>
         {usable.map(({ key, label }) => {
           // Conteos facetados: respetan los demás filtros
           const counts: Record<string, number> = {};
@@ -168,12 +174,12 @@ function FilterBar({ dimensions, records, filters, match, toggle, clear, n, tota
           return (
             <div key={key} className="relative">
               <button type="button" onClick={() => setOpen(open === key ? null : key)}
-                className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-sm ${sel.length ? "border-brand-600 bg-brand-50 text-brand-700" : "border-gray-300 bg-white text-gray-700 hover:border-gray-400"}`}>
+                className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-sm ${sel.length ? "border-brand-600 bg-brand-50 text-brand-700" : "border-gray-300 bg-surface text-gray-700 hover:border-gray-400"}`}>
                 {label}{sel.length > 0 && <span className="rounded-full bg-brand-600 px-1.5 text-[11px] text-white">{sel.length}</span>}
                 <span aria-hidden className="text-gray-400">▾</span>
               </button>
               {open === key && (
-                <div className="absolute left-0 z-30 mt-1 max-h-80 w-72 overflow-auto rounded-lg border border-gray-200 bg-white p-2 shadow-lg">
+                <div className="absolute left-0 z-30 mt-1 max-h-80 w-72 overflow-auto rounded-lg border border-gray-200 bg-surface p-2 shadow-lg">
                   {all.map((v) => (
                     <label key={v} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-gray-50">
                       <input type="checkbox" checked={sel.includes(v)} onChange={() => toggle(key, v)} />
@@ -187,6 +193,7 @@ function FilterBar({ dimensions, records, filters, match, toggle, clear, n, tota
             </div>
           );
         })}
+        </div>
         <div className="ml-auto flex flex-wrap items-center gap-3 text-sm">
           {previous.length > 0 && (
             <label className="flex items-center gap-2 text-gray-600">Comparar con
@@ -435,13 +442,13 @@ function Grupos({ ev, g, dimensions, fRecs, fScores, minGroup, setOnly, maxDomai
         <div className="overflow-x-auto">
           <table className="w-full border-separate border-spacing-0">
             <thead><tr>
-              <th className="th sticky left-0 bg-white">{label}</th><th className="th text-right">n</th><th className="th text-center">Final</th>
+              <th className="th sticky left-0 bg-surface">{label}</th><th className="th text-right">n</th><th className="th text-center">Final</th>
               {cols.map((c) => <th key={c} className="th min-w-[86px] text-center align-bottom normal-case tracking-normal"><span className="line-clamp-3">{c}</span></th>)}
             </tr></thead>
             <tbody>
               {rows.map((r) => (
                 <tr key={r.name}>
-                  <td className="td sticky left-0 bg-white"><button className="text-left font-medium text-brand-700 hover:underline disabled:text-gray-500 disabled:no-underline" disabled={r.hidden} onClick={() => setOnly(d, r.name)}>{r.name}</button></td>
+                  <td className="td sticky left-0 bg-surface"><button className="text-left font-medium text-brand-700 hover:underline disabled:text-gray-500 disabled:no-underline" disabled={r.hidden} onClick={() => setOnly(d, r.name)}>{r.name}</button></td>
                   <td className="td text-right tabular-nums text-gray-500">{r.n}</td>
                   <HeatCell hidden={r.hidden} value={r.agg.final.mean} level={r.agg.final.level} tip={<><b>{r.name}</b> · Final {fmt1(r.agg.final.mean)}</>} />
                   {cols.map((c) => {
@@ -552,9 +559,9 @@ function GuiaI({ ev, fRecs, dimensions, minGroup, canSeeConfidential }: { ev: Pr
                     {k < minGroup ? <span className="text-xs text-gray-400">Grupo pequeño — oculto</span> : (
                       <span className="flex h-4 gap-[2px] overflow-hidden rounded bg-gray-100"
                         onMouseMove={(e) => show(e, <><b>{name}</b><br />Sin acontecimiento: {k - a - b}<br />Acontecimiento sin criterios: {a}<br />Requieren valoración: {b}</>)} onMouseLeave={hide}>
-                        <span style={{ width: `${((k - a - b) / k) * 100}%`, background: "#cbd5e1" }} />
-                        <span style={{ width: `${(a / k) * 100}%`, background: "#f6c026" }} />
-                        <span style={{ width: `${(b / k) * 100}%`, background: "#e53935" }} />
+                        <span style={{ width: `${((k - a - b) / k) * 100}%`, background: "var(--risk-2)" }} />
+                        <span style={{ width: `${(a / k) * 100}%`, background: "var(--lv-medio)" }} />
+                        <span style={{ width: `${(b / k) * 100}%`, background: "var(--lv-muyalto)" }} />
                       </span>
                     )}
                     <span className="text-right tabular-nums text-xs">{k < minGroup ? "" : `${pct(b, k)}% requieren`}</span>
@@ -563,7 +570,7 @@ function GuiaI({ ev, fRecs, dimensions, minGroup, canSeeConfidential }: { ev: Pr
               })}
             </div>
             <div className="mt-3 flex flex-wrap gap-4 text-xs text-gray-600">
-              {[["#cbd5e1", "Sin acontecimiento"], ["#f6c026", "Acontecimiento sin criterios"], ["#e53935", "Requiere valoración clínica"]].map(([c, l]) =>
+              {[["var(--risk-2)", "Sin acontecimiento"], ["var(--lv-medio)", "Acontecimiento sin criterios"], ["var(--lv-muyalto)", "Requiere valoración clínica"]].map(([c, l]) =>
                 <span key={l} className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: c }} />{l}</span>)}
             </div>
             <p className="mt-3 rounded-lg bg-red-50 p-3 text-xs text-red-800">{GUIA_I_ACTION}</p>
@@ -680,10 +687,10 @@ function Plan({ ev, g, agg, n, fRecs, maxDomain }: { ev: Props["evaluation"]; g:
 
 /* ================= KPIs y KRIs ================= */
 const LIGHT_STYLE: Record<Light, { bg: string; fg: string; label: string }> = {
-  VERDE: { bg: "#34a853", fg: "#fff", label: "En control" },
-  AMARILLO: { bg: "#f6c026", fg: "#1f2937", label: "Vigilancia" },
-  ROJO: { bg: "#e53935", fg: "#fff", label: "Acción inmediata" },
-  SIN_DATOS: { bg: "#e5e7eb", fg: "#4b5563", label: "Sin datos" },
+  VERDE: { bg: "var(--lv-bajo)", fg: "var(--lv-bajo-ink)", label: "En control" },
+  AMARILLO: { bg: "var(--lv-medio)", fg: "var(--lv-medio-ink)", label: "Vigilancia" },
+  ROJO: { bg: "var(--lv-muyalto)", fg: "var(--lv-muyalto-ink)", label: "Acción inmediata" },
+  SIN_DATOS: { bg: "var(--lv-none)", fg: "var(--lv-none-ink)", label: "Sin datos" },
 };
 function Kpis({ kpis, filtered, hasPrev }: { kpis: Kpi[]; filtered: boolean; hasPrev: boolean }) {
   const [open, setOpen] = useState<string | null>(null);
