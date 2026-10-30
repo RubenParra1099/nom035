@@ -15,6 +15,8 @@ export const companies = pgTable("companies", {
   name: text("name").notNull(),
   rfc: text("rfc"),
   contact: text("contact"),
+  /** Giro o sector, para el comparativo entre clientes. */
+  sector: text("sector"),
   createdAt: createdAt(),
 });
 

@@ -5,7 +5,8 @@ import { db, schema } from "@/db";
 import { canEdit, canSeeCompany, requireUser } from "@/lib/auth";
 import { requiredGuide, sampleSize } from "@/lib/nom035/score";
 import ConfirmButton from "@/components/ConfirmButton";
-import { createEvaluation, createWorkplace, deleteCompany, updateWorkplaceHeadcount } from "../../actions";
+import { createEvaluation, createWorkplace, deleteCompany, updateCompany, updateWorkplaceHeadcount } from "../../actions";
+import { SECTORS } from "@/lib/sectors";
 
 const GUIDE_LABEL = { GUIA_II: "Guía II · 46", GUIA_III: "Guía III · 72" };
 const STATUS_LABEL = { BORRADOR: "Borrador", ABIERTA: "Abierta", CERRADA: "Cerrada" };
@@ -32,7 +33,20 @@ export default async function CompanyPage({ params }: { params: Promise<{ id: st
       <div>
         <Link href="/admin" className="text-sm text-gray-500 hover:underline">← Empresas</Link>
         <h1 className="text-2xl font-semibold">{company.name}</h1>
-        <p className="text-sm text-gray-500">{[company.rfc, company.contact].filter(Boolean).join(" · ")}</p>
+        <p className="text-sm text-gray-500">{[company.sector, company.rfc, company.contact].filter(Boolean).join(" · ")}</p>
+        {edit && (
+          <details className="mt-2">
+            <summary className="cursor-pointer text-sm font-medium text-brand-700">Editar datos de la empresa</summary>
+            <form action={updateCompany} className="card mt-2 grid gap-3 p-4 md:grid-cols-5 md:items-end">
+              <input type="hidden" name="id" value={company.id} />
+              <div className="md:col-span-2"><label className="label">Razón social / nombre</label><input name="name" className="input" defaultValue={company.name} required /></div>
+              <div><label className="label">RFC</label><input name="rfc" className="input" defaultValue={company.rfc ?? ""} /></div>
+              <div><label className="label">Giro o sector</label><select name="sector" className="input" defaultValue={company.sector ?? ""}><option value="">Sin especificar</option>{SECTORS.map((x) => <option key={x}>{x}</option>)}</select></div>
+              <div><label className="label">Contacto</label><input name="contact" className="input" defaultValue={company.contact ?? ""} /></div>
+              <div className="md:col-span-5 md:text-right"><button className="btn-primary">Guardar</button></div>
+            </form>
+          </details>
+        )}
       </div>
 
       {company.workplaces.map((w) => {

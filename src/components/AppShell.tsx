@@ -7,6 +7,7 @@ import ThemeToggle from "./ThemeToggle";
 type Item = { href: string; label: string; icon: React.ReactNode; match: (p: string) => boolean };
 const I = {
   building: <svg viewBox="0 0 20 20" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M3.5 17V4.5a1 1 0 0 1 1-1h7a1 1 0 0 1 1 1V17M12.5 8h3a1 1 0 0 1 1 1v8M2 17h16M6.5 6.5h3M6.5 9.5h3M6.5 12.5h3" strokeLinecap="round" /></svg>,
+  chart: <svg viewBox="0 0 20 20" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M3 17h14M5.5 14V9M10 14V4.5M14.5 14V7.5" strokeLinecap="round" /></svg>,
   bell: <svg viewBox="0 0 20 20" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M5 8a5 5 0 0 1 10 0c0 4 1.5 5.5 1.5 5.5h-13S5 12 5 8ZM8.5 16.5a1.7 1.7 0 0 0 3 0" strokeLinecap="round" strokeLinejoin="round" /></svg>,
   users: <svg viewBox="0 0 20 20" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="1.6"><circle cx="7.5" cy="7" r="3" /><path d="M2 17c.6-3 2.8-4.5 5.5-4.5S12.4 14 13 17M13 4.2a3 3 0 0 1 0 5.6M15 12.8c1.6.6 2.6 2 3 4.2" strokeLinecap="round" /></svg>,
   menu: <svg viewBox="0 0 20 20" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 5h14M3 10h14M3 15h14" strokeLinecap="round" /></svg>,
@@ -22,6 +23,7 @@ export default function AppShell({ user, role, isAdmin, alerts, logout, children
   const items: Item[] = [
     { href: "/admin", label: "Empresas y evaluaciones", icon: I.building, match: (p) => p === "/admin" || p.startsWith("/admin/empresas") || p.startsWith("/admin/evaluaciones") || p.startsWith("/admin/centros") },
     { href: "/admin/alertas", label: "Alertas", icon: I.bell, match: (p: string) => p.startsWith("/admin/alertas") },
+    { href: "/admin/comparativo", label: "Comparativo", icon: I.chart, match: (p: string) => p.startsWith("/admin/comparativo") },
     ...(isAdmin ? [{ href: "/admin/usuarios", label: "Usuarios", icon: I.users, match: (p: string) => p.startsWith("/admin/usuarios") }] : []),
   ];
   const initials = user.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();

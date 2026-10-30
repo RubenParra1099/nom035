@@ -3,6 +3,7 @@ import { desc, eq, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { canEdit, requireUser } from "@/lib/auth";
 import { createCompany } from "./actions";
+import { SECTORS } from "@/lib/sectors";
 
 export default async function CompaniesPage() {
   const s = await requireUser();
@@ -54,6 +55,7 @@ export default async function CompaniesPage() {
             <div><label className="label">Razón social / nombre</label><input name="name" className="input" required /></div>
             <div><label className="label">RFC</label><input name="rfc" className="input" /></div>
             <div><label className="label">Contacto</label><input name="contact" className="input" placeholder="Nombre, correo o teléfono" /></div>
+            <div><label className="label">Giro o sector</label><select name="sector" className="input" defaultValue=""><option value="">Sin especificar</option>{SECTORS.map((x) => <option key={x}>{x}</option>)}</select></div>
             <button className="btn-primary w-full">Crear empresa</button>
           </form>
         )}
