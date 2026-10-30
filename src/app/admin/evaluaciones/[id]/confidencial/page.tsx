@@ -1,3 +1,4 @@
+import Link from "next/link";
 import EvalHeader from "@/components/EvalHeader";
 import { notFound } from "next/navigation";
 import { and, desc, eq, or } from "drizzle-orm";
@@ -54,7 +55,8 @@ export default async function ConfidentialPage({ params }: { params: Promise<{ i
           <tbody className="divide-y divide-gray-100">
             {rows.map(({ r, c, f }) => (
               <tr key={r.id}>
-                <td className="td">{c?.name ?? <span className="text-gray-400">Anónimo</span>}</td>
+                <td className="td"><Link href={`${path}/${r.id}`} className="font-medium text-brand-700 hover:underline">{c?.name ?? "Anónimo"}</Link>
+                  <div className="text-xs text-gray-400">Ver ficha →</div></td>
                 <td className="td">{r.demographics.departamento ?? "—"}<div className="text-xs text-gray-500">{r.demographics.puesto}</div></td>
                 <td className="td">{r.atsRequires ? <span className="font-semibold text-red-600">Requiere valoración</span> : "Vivió ATS, sin criterios"}</td>
                 <td className="td tabular-nums">{f ? <>{f.identifiedAt}<div className="text-xs text-gray-400">{days(f.identifiedAt, f.canalizedAt ?? today)} días{f.canalizedAt ? " hasta canalizar" : " sin canalizar"}</div></> : "—"}</td>
@@ -90,7 +92,7 @@ export default async function ConfidentialPage({ params }: { params: Promise<{ i
           <table className="w-full"><tbody className="divide-y divide-gray-100">
             {others.map(({ r, c }) => (
               <tr key={r.id}>
-                <td className="td">{c.name}</td>
+                <td className="td"><Link href={`${path}/${r.id}`} className="font-medium text-brand-700 hover:underline">{c.name}</Link></td>
                 <td className="td">{r.demographics.departamento ?? "—"}</td>
                 <td className="td">
                   <form action={toggleAttended} className="flex items-center gap-2">

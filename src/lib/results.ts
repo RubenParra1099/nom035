@@ -48,6 +48,9 @@ export const DIMENSIONS: { key: string; label: string }[] = [
   { key: "experiencia", label: "Experiencia laboral" },
 ];
 
+/** Folio anónimo y estable de una respuesta (no reversible). */
+export const folioOf = (id: string) => createHash("sha256").update(id).digest("hex").slice(0, 6).toUpperCase();
+
 export type DashRecord = {
   f?: string;
   d: Record<string, string>;
@@ -69,7 +72,7 @@ export async function loadDashboard(evaluationId: string, opts: { folio?: boolea
   const rows = await db.query.responses.findMany({ where: eq(schema.responses.evaluationId, evaluationId) });
   const toRecord = (r: (typeof rows)[number]): DashRecord => ({
     // Folio anónimo y estable (derivado del id, no reversible); solo para administradores y consultores
-    ...(opts.folio ? { f: createHash("sha256").update(r.id).digest("hex").slice(0, 6).toUpperCase() } : {}),
+    ...(opts.folio ? { f: folioOf(r.id) } : {}),
     d: Object.fromEntries(DIMENSIONS.map(({ key }) => [key, r.demographics[key] || "Sin dato"])),
     it: Array.from({ length: g.items }, (_, i) => {
       const v = (r.items as Record<string, number | null>)[i + 1];
