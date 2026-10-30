@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { ANSWERS, GUIDES, LEVEL_LABEL, type GuideId, type Level } from "@/lib/nom035/guides";
 import type { ScoreResult } from "@/lib/nom035/score";
 import { INTERVENTIONS } from "@/lib/nom035/interventions";
@@ -25,11 +26,11 @@ function stats(g: GuideT, n: number, recs: Rec[]) {
 }
 
 export default function ItemSheet({
-  guide, item, recs, scores, prevRecs, prevName, dimensions, minGroup, canSeeIndividual, population, rank, onClose, onFilter,
+  guide, item, recs, scores, prevRecs, prevName, dimensions, minGroup, canSeeIndividual, population, rank, context, onClose, onFilter,
 }: {
   guide: GuideId; item: number; recs: Rec[]; scores: ScoreResult[]; prevRecs?: Rec[]; prevName?: string;
   dimensions: { key: string; label: string }[]; minGroup: number; canSeeIndividual: boolean; population: number | null;
-  rank: { pos: number; of: number }; onClose: () => void; onFilter: (key: string, value: string) => void;
+  rank: { pos: number; of: number }; context: { title: string; filters: string }; onClose: () => void; onFilter: (key: string, value: string) => void;
 }) {
   const g = GUIDES[guide];
   const n = item;
@@ -71,6 +72,18 @@ export default function ItemSheet({
     .sort((a, b) => b.p - a.p || (a.r.d.departamento ?? "").localeCompare(b.r.d.departamento ?? "", "es") || b.sc.final - a.sc.final), [recs, scores, n, g, onlyUnfav, area]);
   const areas = useMemo(() => [...new Set(recs.map((r) => r.d.departamento ?? "Sin dato"))].sort((a, b) => a.localeCompare(b, "es")), [recs]);
 
+  const [printIndividual, setPrintIndividual] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  // Al imprimir, solo la ficha va a la hoja (el tablero de fondo se oculta con body.print-sheet)
+  const printSheet = () => {
+    const prevTitle = document.title;
+    document.title = `Ficha reactivo ${n} - ${context.title}`;
+    document.body.classList.add("print-sheet");
+    const done = () => { document.body.classList.remove("print-sheet"); document.title = prevTitle; window.removeEventListener("afterprint", done); };
+    window.addEventListener("afterprint", done);
+    window.print();
+  };
   useEffect(() => {
     const k = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", k);
@@ -82,17 +95,28 @@ export default function ItemSheet({
   const countByAnswer = ANSWERS.map((_, v) => s.counts[answerPts[v]]);
   const maxC = Math.max(1, ...countByAnswer);
 
-  return (
-    <div className="no-print fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label={`Ficha técnica del reactivo ${n}`}>
-      <button className="absolute inset-0 bg-black/40" aria-label="Cerrar" onClick={onClose} />
-      <div className="relative flex h-full w-full max-w-3xl flex-col overflow-hidden bg-bg shadow-2xl">
-        <header className="border-b border-line bg-surface px-5 py-4">
+  if (!mounted) return null;
+  return createPortal(
+    <div id="item-sheet" className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label={`Ficha técnica del reactivo ${n}`}>
+      <button className="sheet-backdrop absolute inset-0 bg-black/40" aria-label="Cerrar" onClick={onClose} />
+      <div className="sheet-panel relative flex h-full w-full max-w-3xl flex-col overflow-hidden bg-bg shadow-2xl">
+        <div className="sheet-head border-b border-line bg-surface px-5 py-4">
+          <div className="sheet-print-only mb-3 hidden items-end justify-between border-b border-line pb-2 text-[11px] text-gray-600">
+            <div><b className="text-gray-900">{context.title}</b>{context.filters && <div>Filtros: {context.filters}</div>}</div>
+            <div className="text-right">NOM-035-STPS-2018 · {g.name}<div>Impreso el {new Date().toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" })}</div></div>
+          </div>
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Ficha técnica · Reactivo {n} de {g.items}</p>
               <h2 className="mt-1 text-lg font-semibold leading-snug text-gray-900">{g.text(n)}</h2>
             </div>
-            <button className="btn-secondary px-3 py-1.5" onClick={onClose} aria-label="Cerrar ficha">✕</button>
+            <div className="no-print flex shrink-0 gap-2">
+              <button className="btn-secondary px-3 py-1.5" onClick={printSheet} title="Imprimir o guardar como PDF">
+                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><path d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v6a1 1 0 0 1-1 1h-2" /><path d="M6 14h12v7H6z" /></svg>
+                PDF
+              </button>
+              <button className="btn-secondary px-3 py-1.5" onClick={onClose} aria-label="Cerrar ficha">✕</button>
+            </div>
           </div>
           <div className="mt-3 flex flex-wrap gap-1.5 text-[11px]">
             <Chip>{category}</Chip><Chip>{domain}</Chip>
@@ -100,9 +124,9 @@ export default function ItemSheet({
             <Chip muted>{g.inverse.has(n) ? "Positivo: Siempre = 0 pts" : "Negativo: Siempre = 4 pts"}</Chip>
             {conditional && <Chip muted>{conditional}</Chip>}
           </div>
-        </header>
+        </div>
 
-        <div className="flex-1 space-y-4 overflow-y-auto p-5">
+        <div className="sheet-body flex-1 space-y-4 overflow-y-auto p-5">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Stat label="Puntos promedio" value={s.mean.toFixed(2)} sub="escala 0 a 4" />
             <Stat label="Respuesta desfavorable" value={`${pct(s.unfavN, s.answered)}%`}
@@ -160,7 +184,8 @@ export default function ItemSheet({
             </table>
           </Section>
 
-          <Section title="Respuestas individuales" subtitle="Anónimas: la plataforma no guarda nombres. El folio identifica la encuesta, no a la persona">
+          <Section title="Respuestas individuales" subtitle="Anónimas: la plataforma no guarda nombres. El folio identifica la encuesta, no a la persona"
+            className={canSeeIndividual && printIndividual ? "" : "print:hidden"}>
             {canSeeIndividual ? (
               <>
                 <div className="mb-2 flex flex-wrap items-center gap-3 text-sm">
@@ -169,8 +194,9 @@ export default function ItemSheet({
                     <option value="">Todas las áreas</option>{areas.map((a) => <option key={a} value={a}>{a}</option>)}
                   </select>
                   <span className="text-gray-500">{people.length} encuestas</span>
+                  <label className="no-print ml-auto inline-flex items-center gap-1.5 text-xs text-gray-600"><input type="checkbox" checked={printIndividual} onChange={(e) => setPrintIndividual(e.target.checked)} />Incluir en el PDF</label>
                 </div>
-                <div className="max-h-[22rem] overflow-auto rounded-lg border border-line">
+                <div className="max-h-[22rem] overflow-auto rounded-lg border border-line print:max-h-none print:overflow-visible">
                   <table className="w-full min-w-[560px]">
                     <thead className="sticky top-0 bg-surface-2"><tr>
                       <th className="th">Folio</th><th className="th">Área y puesto</th><th className="th">Sexo</th><th className="th">Antigüedad</th><th className="th">Respuesta</th><th className="th">Calif. final</th>
@@ -209,7 +235,7 @@ export default function ItemSheet({
         </div>
       </div>
     </div>
-  );
+  , document.body);
 }
 
 function Chip({ children, muted }: { children: React.ReactNode; muted?: boolean }) {
@@ -224,9 +250,9 @@ function Stat({ label, value, sub, tone }: { label: string; value: string; sub?:
     </div>
   );
 }
-function Section({ title, subtitle, right, children }: { title: string; subtitle?: string; right?: React.ReactNode; children: React.ReactNode }) {
+function Section({ title, subtitle, right, children, className = "" }: { title: string; subtitle?: string; right?: React.ReactNode; children: React.ReactNode; className?: string }) {
   return (
-    <section className="card p-4">
+    <section className={`card p-4 ${className}`}>
       <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
         <div><h3 className="text-sm font-semibold text-gray-900">{title}</h3>{subtitle && <p className="text-xs text-gray-500">{subtitle}</p>}</div>
         {right}

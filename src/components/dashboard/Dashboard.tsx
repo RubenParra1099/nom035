@@ -166,6 +166,8 @@ function DashboardInner({ evaluation: ev, records, previous, intervention, areaH
               canSeeIndividual={canSeeConfidential} population={population}
               prevRecs={pe?.records.filter((r) => match(r))} prevName={pe?.name}
               rank={{ pos: ranked.findIndex((r) => r.n === sheet) + 1 || ranked.length, of: ranked.length }}
+              context={{ title: `${ev.company} · ${ev.workplace} · ${ev.name}`,
+                filters: Object.entries(filters).filter(([, v]) => v.length).map(([k, v]) => `${dimensions.find((d) => d.key === k)?.label ?? k}: ${v.join(", ")}`).join(" · ") }}
               onClose={() => setSheet(null)} onFilter={(k, v) => { setOnly(k, v); setSheet(null); }} />;
           })()}
         </>
