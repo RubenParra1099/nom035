@@ -123,3 +123,43 @@ describe("plantilla de captura", () => {
     });
   }
 });
+
+import { computeKpis } from "@/lib/nom035/kpis";
+describe("KPIs y KRIs", () => {
+  const mk = (fill: number, n = 20) => Array.from({ length: n }, (_, i) => ({ d: { departamento: i % 2 ? "A" : "B", jornada: "Fijo Diurno", rotacion: "No", tiempoPuesto: "Entre 1 y 4 años" }, it: Array(72).fill(fill), g1: 0 as const }));
+  it("todo en Siempre: reactivos positivos sin riesgo, negativos al máximo", () => {
+    const k = computeKpis({ guide: "GUIA_III", records: mk(0), headcount: 20, minGroup: 5 });
+    const by = Object.fromEntries(k.map((x) => [x.id, x]));
+    expect(by["LR-01"].value).toBe(100); // violencia: 57 positivo (0) + 58–64 negativos (4) = 28 pts ≥ 13
+    expect(by["LR-02"].value).toBe(100);
+    expect(by["LR-03"].value).toBe(100); // liderazgo todo positivo → 100 favorable
+    expect(by["LR-03"].light).toBe("VERDE");
+    expect(by["CC-01"].light).toBe("ROJO");
+    expect(by["EI-01"].light).toBe("SIN_DATOS");
+  });
+  it("tendencia, capacitación, quejas y ATS", () => {
+    const today = "2026-10-29";
+    const k = computeKpis({
+      guide: "GUIA_III", records: mk(2), prevRecords: mk(1), headcount: 40, minGroup: 5, today,
+      intervention: {
+        complaints: [{ receivedAt: "2026-08-01", closedAt: "2026-08-20", category: "VIOLENCIA" }, { receivedAt: "2026-08-01", closedAt: null, category: "OTRO" }],
+        trainings: [{ area: "A", attendees: 10, preScore: 60, postScore: 80 }],
+        prevActions: [], actions: [{ dueDate: "2026-09-01", doneAt: "2026-08-30" }, { dueDate: "2026-09-01", doneAt: null }],
+        ats: [{ status: "ATENDIDO", identifiedAt: "2026-09-01", canalizedAt: "2026-09-05" }, { status: "IDENTIFICADO", identifiedAt: "2026-09-01", canalizedAt: null }],
+      },
+    });
+    const by = Object.fromEntries(k.map((x) => [x.id, x]));
+    expect(by["EI-04"].value).toBeCloseTo(0.5, 5); // (80−60)/(100−60)
+    expect(by["EI-06"].value).toBe(50);
+    expect(by["EI-08"].value).toBe(50);
+    expect(by["EI-09"].value).toBe(50);
+    expect(by["EI-10"].value).toBe(50);
+    expect(by["EI-01"].value).not.toBeNull();
+  });
+  it("Guía II omite indicadores exclusivos de Guía III", () => {
+    const k = computeKpis({ guide: "GUIA_II", records: mk(1).map((r) => ({ ...r, it: r.it.slice(0, 46) })), headcount: 20, minGroup: 5 });
+    expect(k.find((x) => x.id === "EO-01")).toBeUndefined();
+    expect(k.find((x) => x.id === "LR-05")).toBeUndefined();
+    expect(k.length).toBe(23);
+  });
+});

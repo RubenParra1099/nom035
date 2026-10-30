@@ -3,6 +3,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { GUIDES, LEVELS, LEVEL_ACTION, LEVEL_LABEL, itemsOfDomain, type GuideId, type Level } from "@/lib/nom035/guides";
 import { aggregate, sampleSize, scoreWorker, type ScoreResult } from "@/lib/nom035/score";
 import { INTERVENTIONS, GUIA_I_ACTION } from "@/lib/nom035/interventions";
+import { computeKpis, DIM_NAMES, type InterventionData, type Kpi, type Light } from "@/lib/nom035/kpis";
 import {
   BulletBar, FreqBars, Gauge, HeatCell, LEVEL_HEX, LEVEL_TEXT, LevelDonut, LevelStack, Radar, RiskDiverging, RiskLegend,
   TipProvider, fmt1, pct, riskIndex, useTip,
@@ -15,6 +16,7 @@ type Props = {
   evaluation: { id: string; name: string; guide: GuideId; includeGuideI: boolean; company: string; workplace: string; headcount: number };
   records: Rec[];
   previous: PrevRaw[];
+  intervention: InterventionData;
   dimensions: { key: string; label: string }[];
   minGroup: number;
   canSeeConfidential: boolean;
@@ -23,6 +25,7 @@ type Filters = Record<string, string[]>;
 
 const TABS = [
   { id: "resumen", label: "Resumen ejecutivo" },
+  { id: "kpis", label: "KPIs y KRIs" },
   { id: "dominios", label: "Categorías y dominios" },
   { id: "grupos", label: "Comparativo por grupos" },
   { id: "reactivos", label: "Reactivos" },
@@ -58,7 +61,7 @@ export default function Dashboard(props: Props) {
   return <TipProvider><DashboardInner {...props} /></TipProvider>;
 }
 
-function DashboardInner({ evaluation: ev, records, previous, dimensions, minGroup, canSeeConfidential }: Props) {
+function DashboardInner({ evaluation: ev, records, previous, intervention, dimensions, minGroup, canSeeConfidential }: Props) {
   const g = GUIDES[ev.guide];
   const itemMap = useMemo(() => itemsOfDomain(g), [g]);
   const maxDomain = useMemo(() => Object.fromEntries(Object.entries(g.domains).map(([d, its]) => [d, its.length * 4])), [g]);
@@ -123,6 +126,8 @@ function DashboardInner({ evaluation: ev, records, previous, dimensions, minGrou
       ) : (
         <>
           {tab === "resumen" && <Resumen {...{ ev, g, agg, n, prev, fRecs, fScores, maxDomain, maxCat, itemMap, setTab, filtered, records }} />}
+          {tab === "kpis" && <Kpis kpis={computeKpis({ guide: ev.guide, records: fRecs, minGroup, headcount: ev.headcount, intervention,
+            prevRecords: previous.find((p) => p.id === compareId)?.records.filter((r) => match(r)) })} filtered={filtered} hasPrev={!!compareId} />}
           {tab === "dominios" && <Dominios {...{ g, agg, n, prev, maxDomain, maxCat }} />}
           {tab === "grupos" && <Grupos {...{ ev, g, dimensions, fRecs, fScores, minGroup, setOnly, maxDomain }} />}
           {tab === "reactivos" && <Reactivos {...{ g, fRecs, itemMap }} />}
@@ -669,6 +674,72 @@ function Plan({ ev, g, agg, n, fRecs, maxDomain }: { ev: Props["evaluation"]; g:
           <ul className="space-y-1 text-sm">{watch.map((d) => <li key={d.name} className="flex items-center gap-2"><Badge level={d.level} />{d.name} — {d.hi}% en nivel alto o muy alto</li>)}</ul>
         </Panel>
       )}
+    </div>
+  );
+}
+
+/* ================= KPIs y KRIs ================= */
+const LIGHT_STYLE: Record<Light, { bg: string; fg: string; label: string }> = {
+  VERDE: { bg: "#34a853", fg: "#fff", label: "En control" },
+  AMARILLO: { bg: "#f6c026", fg: "#1f2937", label: "Vigilancia" },
+  ROJO: { bg: "#e53935", fg: "#fff", label: "Acción inmediata" },
+  SIN_DATOS: { bg: "#e5e7eb", fg: "#4b5563", label: "Sin datos" },
+};
+function Kpis({ kpis, filtered, hasPrev }: { kpis: Kpi[]; filtered: boolean; hasPrev: boolean }) {
+  const [open, setOpen] = useState<string | null>(null);
+  const counts = (["ROJO", "AMARILLO", "VERDE", "SIN_DATOS"] as Light[]).map((l) => [l, kpis.filter((k) => k.light === l).length] as const);
+  return (
+    <div className="space-y-4">
+      <div className="card flex flex-wrap items-center gap-4 p-4">
+        {counts.map(([l, c]) => (
+          <div key={l} className="flex items-center gap-2">
+            <span className="flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold" style={{ background: LIGHT_STYLE[l].bg, color: LIGHT_STYLE[l].fg }}>{c}</span>
+            <span className="text-sm text-gray-700">{LIGHT_STYLE[l].label}</span>
+          </div>
+        ))}
+        <p className="text-xs text-gray-500 md:ml-auto">
+          Indicadores de encuesta: respetan los filtros{filtered ? " activos" : ""}. Indicadores de centro (capacitación, quejas, ATS, programa): todo el centro de trabajo.
+          {!hasPrev && " Selecciona un periodo en “Comparar con” para ΔIGR, TRPA y EDI."}
+        </p>
+      </div>
+      {([1, 2, 3, 4] as const).map((dim) => (
+        <section key={dim} className="space-y-2">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">{dim} · {DIM_NAMES[dim]}</h2>
+          <div className="grid items-start gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {kpis.filter((k) => k.dim === dim).map((k) => {
+              const st = LIGHT_STYLE[k.light];
+              const isOpen = open === k.id;
+              return (
+                <article key={k.id} className="card flex flex-col overflow-hidden">
+                  <div className="h-1.5" style={{ background: st.bg }} />
+                  <div className="flex flex-1 flex-col p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="text-[11px] font-semibold text-gray-500">{k.id} · {k.short} · {k.type}{k.scope === "centro" ? " · centro" : ""}</div>
+                        <h3 className="text-sm font-semibold leading-snug text-gray-900">{k.name}</h3>
+                      </div>
+                      <span className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: st.bg, color: st.fg }}>{st.label}</span>
+                    </div>
+                    <div className="mt-2 text-3xl font-bold tabular-nums text-gray-900">{k.display}</div>
+                    <p className="mt-1 text-xs text-gray-600">{k.detail}</p>
+                    <button className="mt-auto pt-3 text-left text-xs font-medium text-brand-700 hover:underline print:hidden" onClick={() => setOpen(isOpen ? null : k.id)}>
+                      {isOpen ? "Ocultar ficha técnica" : "Ver ficha técnica"}
+                    </button>
+                    {isOpen && (
+                      <dl className="mt-2 space-y-1.5 rounded-lg bg-gray-50 p-3 text-xs text-gray-700">
+                        <div><dt className="font-semibold">Fórmula</dt><dd>{k.formula}</dd></div>
+                        <div><dt className="font-semibold">Frecuencia</dt><dd>{k.frequency}</dd></div>
+                        <div><dt className="font-semibold">Fuente</dt><dd>{k.source}</dd></div>
+                        <div><dt className="font-semibold">Umbrales</dt><dd>{k.thresholds}</dd></div>
+                      </dl>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      ))}
     </div>
   );
 }

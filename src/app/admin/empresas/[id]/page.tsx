@@ -41,7 +41,7 @@ export default async function CompanyPage({ params }: { params: Promise<{ id: st
           <section key={w.id} className="card p-5">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <h2 className="text-lg font-semibold">{w.name}</h2>
+                <h2 className="text-lg font-semibold">{w.name} <Link href={`/admin/centros/${w.id}`} className="ml-2 text-sm font-normal text-brand-700 hover:underline">Gestión preventiva (quejas, capacitación) →</Link></h2>
                 <p className="text-sm text-gray-500">{w.address}</p>
                 <p className="mt-1 text-sm">
                   <b>{w.headcount}</b> trabajadores ·{" "}

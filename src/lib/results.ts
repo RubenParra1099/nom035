@@ -1,5 +1,5 @@
 import "server-only";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { GUIDES, type GuideId } from "@/lib/nom035/guides";
 import { maskConditional, scoreWorker } from "@/lib/nom035/score";
@@ -24,6 +24,7 @@ export async function saveResponse(
     comment: r.comment,
   }).returning({ id: schema.responses.id });
   if (r.contactName) await db.insert(schema.confidentialContacts).values({ responseId: row.id, name: r.contactName });
+  if (ats.requiresEvaluation) await db.insert(schema.atsFollowups).values({ responseId: row.id });
   return row.id;
 }
 
@@ -86,11 +87,30 @@ export async function loadDashboard(evaluationId: string) {
     if (pe.id === ev.id || pe.guide !== ev.guide || pe.createdAt >= ev.createdAt) continue;
     const pr = await db.query.responses.findMany({ where: eq(schema.responses.evaluationId, pe.id) });
     if (pr.length < MIN_GROUP) continue;
-    previous.push({ id: pe.id, name: pe.name, records: pr.map(toRecord) });
+    previous.push({ id: pe.id, name: pe.name, createdAt: pe.createdAt.toISOString(), records: pr.map(toRecord) });
   }
-  previous.sort((a, b) => b.name.localeCompare(a.name, "es"));
+  previous.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+
+  // Registros de intervención del centro de trabajo (solo datos agregables, sin nombres)
+  const [complaintRows, trainingRows, actionRows, atsRows] = await Promise.all([
+    db.query.complaints.findMany({ where: eq(schema.complaints.workplaceId, ev.workplaceId) }),
+    db.query.trainings.findMany({ where: eq(schema.trainings.workplaceId, ev.workplaceId) }),
+    db.query.planActions.findMany({ where: inArray(schema.planActions.evaluationId, [ev.id, ...previous.map((p) => p.id)]) }),
+    db.select({ status: schema.atsFollowups.status, identifiedAt: schema.atsFollowups.identifiedAt, canalizedAt: schema.atsFollowups.canalizedAt })
+      .from(schema.atsFollowups).innerJoin(schema.responses, eq(schema.responses.id, schema.atsFollowups.responseId))
+      .where(eq(schema.responses.evaluationId, ev.id)),
+  ]);
+  const prevId = previous[0]?.id;
+  const intervention = {
+    complaints: complaintRows.map((c) => ({ receivedAt: c.receivedAt, closedAt: c.closedAt, category: c.category })),
+    trainings: trainingRows.map((t) => ({ area: t.area, attendees: t.attendees, preScore: t.preScore, postScore: t.postScore })),
+    prevActions: actionRows.filter((a) => a.evaluationId === prevId).map((a) => ({ domain: a.domain })),
+    actions: actionRows.filter((a) => a.evaluationId === ev.id).map((a) => ({ dueDate: a.dueDate, doneAt: a.doneAt })),
+    ats: atsRows,
+  };
 
   return {
+    intervention,
     evaluation: {
       id: ev.id, name: ev.name, guide: ev.guide, includeGuideI: ev.includeGuideI,
       company: ev.workplace.company.name, workplace: ev.workplace.name, headcount: ev.workplace.headcount,

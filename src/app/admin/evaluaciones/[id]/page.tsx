@@ -66,6 +66,8 @@ export default async function EvaluationPage({ params }: { params: Promise<{ id:
 
       <div className="flex flex-wrap gap-3">
         <Link className="btn-primary" href={`/admin/evaluaciones/${id}/indicadores`}>Ver indicadores y semáforo</Link>
+        <Link className="btn-secondary" href={`/admin/evaluaciones/${id}/programa`}>Programa de intervención</Link>
+        <Link className="btn-secondary" href={`/admin/centros/${ev.workplaceId}`}>Quejas y capacitación</Link>
         {s.role !== "CLIENTE" && <Link className="btn-secondary" href={`/admin/evaluaciones/${id}/confidencial`}>Seguimiento confidencial (Guía I)</Link>}
       </div>
 

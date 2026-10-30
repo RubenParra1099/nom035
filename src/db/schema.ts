@@ -1,4 +1,4 @@
-import { pgTable, pgEnum, text, integer, boolean, timestamp, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, pgEnum, text, integer, boolean, timestamp, jsonb, index, uniqueIndex, date, doublePrecision } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createId } from "./id";
 
@@ -83,6 +83,61 @@ export const confidentialContacts = pgTable("confidential_contacts", {
   createdAt: createdAt(),
 });
 
+/** Seguimiento de casos de Guía I que requieren valoración clínica (uno por respuesta). */
+export const atsStatusEnum = pgEnum("ats_status", ["IDENTIFICADO", "CANALIZADO", "EN_ATENCION", "ATENDIDO", "NO_LOCALIZABLE"]);
+export const atsFollowups = pgTable("ats_followups", {
+  id: id(),
+  responseId: text("response_id").notNull().unique().references(() => responses.id, { onDelete: "cascade" }),
+  status: atsStatusEnum("status").notNull().default("IDENTIFICADO"),
+  identifiedAt: date("identified_at", { mode: "string" }).notNull().defaultNow(),
+  canalizedAt: date("canalized_at", { mode: "string" }),
+  closedAt: date("closed_at", { mode: "string" }),
+  institution: text("institution"),
+  notes: text("notes"),
+});
+
+/** Buzón de quejas (mecanismo del numeral 8.1 b): solo datos del caso, sin identificar a quien se queja. */
+export const complaintStatusEnum = pgEnum("complaint_status", ["RECIBIDA", "EN_INVESTIGACION", "CERRADA"]);
+export const complaints = pgTable("complaints", {
+  id: id(),
+  workplaceId: text("workplace_id").notNull().references(() => workplaces.id, { onDelete: "cascade" }),
+  receivedAt: date("received_at", { mode: "string" }).notNull(),
+  category: text("category").notNull(), // VIOLENCIA | ENTORNO | CARGA | OTRO
+  area: text("area"),
+  channel: text("channel"),
+  status: complaintStatusEnum("status").notNull().default("RECIBIDA"),
+  closedAt: date("closed_at", { mode: "string" }),
+  resolution: text("resolution"),
+  createdAt: createdAt(),
+}, (t) => [index("complaints_wp_idx").on(t.workplaceId)]);
+
+/** Capacitaciones y sensibilización, con evaluación diagnóstica y final (0–100). */
+export const trainings = pgTable("trainings", {
+  id: id(),
+  workplaceId: text("workplace_id").notNull().references(() => workplaces.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  topic: text("topic").notNull(), // POLITICA | VIOLENCIA | LIDERAZGO | CARGA | OTRO
+  heldAt: date("held_at", { mode: "string" }).notNull(),
+  area: text("area"),
+  attendees: integer("attendees").notNull().default(0),
+  preScore: doublePrecision("pre_score"),
+  postScore: doublePrecision("post_score"),
+  createdAt: createdAt(),
+}, (t) => [index("trainings_wp_idx").on(t.workplaceId)]);
+
+/** Acciones del Programa de intervención (numeral 8.4) derivadas de una evaluación. */
+export const planActions = pgTable("plan_actions", {
+  id: id(),
+  evaluationId: text("evaluation_id").notNull().references(() => evaluations.id, { onDelete: "cascade" }),
+  domain: text("domain").notNull(),
+  action: text("action").notNull(),
+  area: text("area"),
+  owner: text("owner"),
+  dueDate: date("due_date", { mode: "string" }).notNull(),
+  doneAt: date("done_at", { mode: "string" }),
+  createdAt: createdAt(),
+}, (t) => [index("plan_actions_eval_idx").on(t.evaluationId)]);
+
 export const auditLogs = pgTable("audit_logs", {
   id: id(),
   userId: text("user_id").references(() => users.id, { onDelete: "set null" }),
@@ -104,10 +159,14 @@ export const evaluationsRel = relations(evaluations, ({ one, many }) => ({
 export const responsesRel = relations(responses, ({ one }) => ({
   evaluation: one(evaluations, { fields: [responses.evaluationId], references: [evaluations.id] }),
   confidential: one(confidentialContacts, { fields: [responses.id], references: [confidentialContacts.responseId] }),
+  followup: one(atsFollowups, { fields: [responses.id], references: [atsFollowups.responseId] }),
 }));
 export const confidentialRel = relations(confidentialContacts, ({ one }) => ({
   response: one(responses, { fields: [confidentialContacts.responseId], references: [responses.id] }),
 }));
 export const usersRel = relations(users, ({ one }) => ({
   company: one(companies, { fields: [users.companyId], references: [companies.id] }),
+}));
+export const atsRel = relations(atsFollowups, ({ one }) => ({
+  response: one(responses, { fields: [atsFollowups.responseId], references: [responses.id] }),
 }));

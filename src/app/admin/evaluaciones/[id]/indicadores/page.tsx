@@ -24,7 +24,7 @@ export default async function IndicatorsPage({ params }: { params: Promise<{ id:
         </div>
         <PrintButton />
       </div>
-      <Dashboard evaluation={ev} records={data.records} previous={data.previous} dimensions={DIMENSIONS}
+      <Dashboard evaluation={ev} records={data.records} previous={data.previous} intervention={data.intervention} dimensions={DIMENSIONS}
         minGroup={MIN_GROUP} canSeeConfidential={s.role !== "CLIENTE"} />
     </div>
   );
