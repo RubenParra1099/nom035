@@ -116,6 +116,22 @@ body { font-feature-settings: "cv11", "ss01"; }
 @utility th { @apply px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-500; }
 @utility td { @apply px-3 py-2 text-sm; }
 
+/* Hoja del informe: siempre en claro, también en modo oscuro */
+.report-paper {
+  color-scheme: light;
+  --ink: #111827; --ink-2: #374151; --muted: #6b7280; --line: #e5e7eb; --surface: #ffffff;
+  --lv-nulo: #2bb3c0; --lv-nulo-ink: #fff; --lv-bajo: #34a853; --lv-bajo-ink: #fff; --lv-medio: #f6c026; --lv-medio-ink: #1f2937;
+  --lv-alto: #f28c28; --lv-alto-ink: #fff; --lv-muyalto: #e53935; --lv-muyalto-ink: #fff; --lv-none: #e5e7eb; --lv-none-ink: #4b5563;
+  --color-gray-50: #f9fafb; --color-gray-100: #f3f4f6; --color-gray-200: #e5e7eb; --color-gray-300: #d1d5db; --color-gray-400: #9ca3af;
+  --color-gray-500: #6b7280; --color-gray-600: #4b5563; --color-gray-700: #374151; --color-gray-800: #1f2937; --color-gray-900: #111827;
+  --color-brand-600: #1d4ed8;
+  background: #fff;
+  font-size: 12px;
+}
+.report-paper h2, .report-paper h3 { break-after: avoid; }
+.report-paper tr, .report-paper p { break-inside: avoid; }
+@page { size: letter; margin: 16mm 15mm; }
+
 /* Impresión y PDF: siempre en claro */
 @media print {
   .dark {
@@ -128,8 +144,9 @@ body { font-feature-settings: "cv11", "ss01"; }
     --color-gray-500: #6b7280; --color-gray-600: #4b5563; --color-gray-700: #374151; --color-gray-800: #1f2937; --color-gray-900: #111827;
     --color-brand-50: #eef4ff; --color-brand-600: #1d4ed8; --color-brand-700: #1e40af; --color-brand-900: #172554;
   }
-  html, body { background: #fff; }
+  html, body, html.dark, html.dark body { background: #fff !important; color-scheme: light !important; }
   .no-print, aside, header, nav { display: none !important; }
+  main { padding: 0 !important; max-width: none !important; }
   .card { box-shadow: none; break-inside: avoid; }
   details { display: block; }
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }

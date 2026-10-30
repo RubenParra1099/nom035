@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-export type EvalTab = "evaluacion" | "tablero" | "programa" | "gestion" | "guia1";
+export type EvalTab = "evaluacion" | "tablero" | "informe" | "programa" | "gestion" | "guia1";
 
 /** Encabezado contextual: ruta Empresa › Centro › Evaluación y pestañas de la evaluación. */
 export default function EvalHeader({ ev, active, canSeeConfidential, title, subtitle, right }: {
@@ -10,6 +10,7 @@ export default function EvalHeader({ ev, active, canSeeConfidential, title, subt
   const tabs: { id: EvalTab; label: string; href: string }[] = [
     { id: "evaluacion", label: "Evaluación", href: `/admin/evaluaciones/${ev.id}` },
     { id: "tablero", label: "Tablero e indicadores", href: `/admin/evaluaciones/${ev.id}/indicadores` },
+    { id: "informe", label: "Informe PDF", href: `/admin/evaluaciones/${ev.id}/informe` },
     { id: "programa", label: "Programa de intervención", href: `/admin/evaluaciones/${ev.id}/programa` },
     { id: "gestion", label: "Quejas y capacitación", href: `/admin/centros/${ev.workplaceId}?ev=${ev.id}` },
     ...(canSeeConfidential ? [{ id: "guia1" as EvalTab, label: "Seguimiento Guía I", href: `/admin/evaluaciones/${ev.id}/confidencial` }] : []),

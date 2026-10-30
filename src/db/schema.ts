@@ -91,6 +91,20 @@ export const workplaceAreas = pgTable("workplace_areas", {
   headcount: integer("headcount").notNull().default(0),
 }, (t) => [uniqueIndex("workplace_areas_name_idx").on(t.workplaceId, t.name)]);
 
+/** Datos del informe de resultados de una evaluación (lo que no sale de las respuestas). */
+export const evaluationReports = pgTable("evaluation_reports", {
+  id: id(),
+  evaluationId: text("evaluation_id").notNull().unique().references(() => evaluations.id, { onDelete: "cascade" }),
+  activity: text("activity"),
+  objective: text("objective"),
+  activities: text("activities"),
+  conclusions: text("conclusions"),
+  responsibleName: text("responsible_name"),
+  responsibleLicense: text("responsible_license"),
+  reportDate: date("report_date", { mode: "string" }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 /** Seguimiento de casos de Guía I que requieren valoración clínica (uno por respuesta). */
 export const atsStatusEnum = pgEnum("ats_status", ["IDENTIFICADO", "CANALIZADO", "EN_ATENCION", "ATENDIDO", "NO_LOCALIZABLE"]);
 export const atsFollowups = pgTable("ats_followups", {

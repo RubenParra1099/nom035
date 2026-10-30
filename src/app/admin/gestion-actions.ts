@@ -127,3 +127,19 @@ export async function saveAreas(form: FormData) {
   await audit(s, "update", "workplace_areas", workplaceId);
   revalidatePath(`/admin/centros/${workplaceId}`);
 }
+
+/* ---------- Informe de resultados ---------- */
+export async function saveReport(form: FormData) {
+  const s = await requireUser(["SUPERADMIN", "CONSULTOR"]);
+  const evaluationId = String(form.get("evaluationId"));
+  const v = (k: string) => opt(form.get(k)) ?? null;
+  const values = {
+    activity: v("activity"), objective: v("objective"), activities: v("activities"), conclusions: v("conclusions"),
+    responsibleName: v("responsibleName"), responsibleLicense: v("responsibleLicense"),
+    reportDate: v("reportDate") ? dateStr.parse(v("reportDate")) : null, updatedAt: new Date(),
+  };
+  await db.insert(schema.evaluationReports).values({ evaluationId, ...values })
+    .onConflictDoUpdate({ target: schema.evaluationReports.evaluationId, set: values });
+  await audit(s, "update", "evaluation_report", evaluationId);
+  revalidatePath(`/admin/evaluaciones/${evaluationId}/informe`);
+}
