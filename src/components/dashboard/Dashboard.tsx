@@ -3,6 +3,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { GUIDES, LEVELS, LEVEL_ACTION, LEVEL_LABEL, itemsOfDomain, type GuideId, type Level } from "@/lib/nom035/guides";
 import { aggregate, sampleSize, scoreWorker, type ScoreResult } from "@/lib/nom035/score";
 import { INTERVENTIONS, GUIA_I_ACTION } from "@/lib/nom035/interventions";
+import ItemSheet from "./ItemSheet";
 import { AtsFunnel, CorrelationMatrix, DemandControl, FinalHistogram, ItemPareto, Sparkline, Waterfall } from "./advanced";
 import { meanChange, meanMoe, wilson } from "@/lib/nom035/stats";
 import { computeKpis, DIM_NAMES, type InterventionData, type Kpi, type Light } from "@/lib/nom035/kpis";
@@ -11,7 +12,7 @@ import {
   TipProvider, fmt1, pct, riskIndex, useTip,
 } from "./charts";
 
-type Rec = { d: Record<string, string>; it: (number | null)[]; p: Record<string, string>; g1: 0 | 1 | 2; cli: boolean | null; jefe: boolean | null };
+type Rec = { f?: string; d: Record<string, string>; it: (number | null)[]; p: Record<string, string>; g1: 0 | 1 | 2; cli: boolean | null; jefe: boolean | null };
 type Prev = { id: string; name: string; n: number; final: number; categories: Record<string, number>; domains: Record<string, number>; finals: number[] };
 type PrevRaw = { id: string; name: string; records: Rec[] };
 type Props = {
@@ -49,8 +50,8 @@ ORDINAL.experiencia = ORDINAL.tiempoPuesto;
 const sortVals = (key: string, vals: string[]) =>
   ORDINAL[key] ? [...vals].sort((a, b) => (ORDINAL[key].indexOf(a) + 1 || 99) - (ORDINAL[key].indexOf(b) + 1 || 99)) : [...vals].sort((a, b) => a.localeCompare(b, "es"));
 
-function readUrl(): { f: Filters; tab: TabId } {
-  if (typeof window === "undefined") return { f: {}, tab: "resumen" };
+function readUrl(): { f: Filters; tab: TabId; item: number | null } {
+  if (typeof window === "undefined") return { f: {}, tab: "resumen", item: null };
   const q = new URLSearchParams(window.location.search);
   const f: Filters = {};
   for (const part of (q.get("f") ?? "").split(";").filter(Boolean)) {
@@ -58,7 +59,8 @@ function readUrl(): { f: Filters; tab: TabId } {
     if (k && v) f[k] = v.split("|").map(decodeURIComponent);
   }
   const tab = (TABS.find((t) => t.id === q.get("tab"))?.id ?? "resumen") as TabId;
-  return { f, tab };
+  const item = Number(q.get("item")) || null;
+  return { f, tab, item };
 }
 
 export default function Dashboard(props: Props) {
@@ -75,14 +77,16 @@ function DashboardInner({ evaluation: ev, records, previous, intervention, areaH
   const [filters, setFilters] = useState<Filters>({});
   const [tab, setTab] = useState<TabId>("resumen");
   const [compareId, setCompareId] = useState<string>(previous[0]?.id ?? "");
-  useEffect(() => { const u = readUrl(); setFilters(u.f); setTab(u.tab); }, []);
+  const [sheet, setSheet] = useState<number | null>(null);
+  useEffect(() => { const u = readUrl(); setFilters(u.f); setTab(u.tab); setSheet(u.item); }, []);
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
     const f = Object.entries(filters).filter(([, v]) => v.length).map(([k, v]) => `${k}:${v.map(encodeURIComponent).join("|")}`).join(";");
     if (f) q.set("f", f); else q.delete("f");
     q.set("tab", tab);
+    if (sheet) q.set("item", String(sheet)); else q.delete("item");
     window.history.replaceState(null, "", `${window.location.pathname}?${q.toString()}`);
-  }, [filters, tab]);
+  }, [filters, tab, sheet]);
 
   const match = (r: Rec, skip?: string) => Object.entries(filters).every(([k, vs]) => k === skip || !vs.length || vs.includes(r.d[k]));
   const idx = useMemo(() => records.map((r, i) => (match(r) ? i : -1)).filter((i) => i >= 0), [records, filters]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -138,7 +142,7 @@ function DashboardInner({ evaluation: ev, records, previous, intervention, areaH
         <Empty>La selección tiene {n} {n === 1 ? "respuesta" : "respuestas"}. Para proteger la confidencialidad se requieren al menos {minGroup}. Quita algún filtro.</Empty>
       ) : (
         <>
-          {tab === "resumen" && <Resumen {...{ ev, g, agg, n, prev, fRecs, fScores, maxDomain, maxCat, itemMap, setTab, filtered, records, areaHeadcount, minGroup, setOnly, population }} />}
+          {tab === "resumen" && <Resumen {...{ ev, g, agg, n, prev, fRecs, fScores, maxDomain, maxCat, itemMap, setTab, filtered, records, areaHeadcount, minGroup, setOnly, population, onOpen: setSheet }} />}
           {tab === "kpis" && <Kpis kpis={computeKpis({ guide: ev.guide, records: fRecs, minGroup, headcount: ev.headcount, intervention, areaHeadcount, population,
             prevRecords: previous.find((p) => p.id === compareId)?.records.filter((r) => match(r)) })} filtered={filtered} hasPrev={!!compareId}
             history={(() => {
@@ -151,10 +155,19 @@ function DashboardInner({ evaluation: ev, records, previous, intervention, areaH
           {tab === "analisis" && <Analisis {...{ g, agg, prev, fRecs, fScores, dimensions, minGroup }} />}
           {tab === "dominios" && <Dominios {...{ g, agg, n, prev, maxDomain, maxCat }} />}
           {tab === "grupos" && <Grupos {...{ ev, g, dimensions, fRecs, fScores, minGroup, setOnly, maxDomain }} />}
-          {tab === "reactivos" && <Reactivos {...{ g, fRecs, itemMap }} />}
+          {tab === "reactivos" && <Reactivos {...{ g, fRecs, itemMap, onOpen: setSheet }} />}
           {tab === "guia1" && <GuiaI {...{ ev, fRecs, dimensions, minGroup, canSeeConfidential, ats: intervention.ats }} />}
           {tab === "perfil" && <><Participation records={records} scores={scores} guide={ev.guide} areaHeadcount={areaHeadcount} minGroup={minGroup} /><Perfil {...{ dimensions, fRecs, filters, toggle }} /></>}
           {tab === "plan" && <Plan {...{ ev, g, agg, n, fRecs, maxDomain }} />}
+          {sheet && sheet <= g.items && (() => {
+            const ranked = topItems(g, fRecs, itemMap);
+            const pe = previous.find((p) => p.id === compareId);
+            return <ItemSheet guide={ev.guide} item={sheet} recs={fRecs} scores={fScores} dimensions={dimensions} minGroup={minGroup}
+              canSeeIndividual={canSeeConfidential} population={population}
+              prevRecs={pe?.records.filter((r) => match(r))} prevName={pe?.name}
+              rank={{ pos: ranked.findIndex((r) => r.n === sheet) + 1 || ranked.length, of: ranked.length }}
+              onClose={() => setSheet(null)} onFilter={(k, v) => { setOnly(k, v); setSheet(null); }} />;
+          })()}
         </>
       )}
     </div>
@@ -279,10 +292,10 @@ type AggT = ReturnType<typeof aggregate>;
 type GuideT = (typeof GUIDES)[GuideId];
 
 /* ================= Resumen ================= */
-function Resumen({ ev, g, agg, n, prev, fRecs, fScores, maxDomain, itemMap, setTab, filtered, records, areaHeadcount, minGroup, setOnly, population }: {
+function Resumen({ ev, g, agg, n, prev, fRecs, fScores, maxDomain, itemMap, setTab, filtered, records, areaHeadcount, minGroup, setOnly, population, onOpen }: {
   ev: Props["evaluation"]; g: GuideT; agg: AggT; n: number; prev?: Prev; fRecs: Rec[]; fScores: ScoreResult[];
   maxDomain: Record<string, number>; maxCat: Record<string, number>; itemMap: Record<number, { domain: string; category: string }>;
-  setTab: (t: TabId) => void; filtered: boolean; records: Rec[]; areaHeadcount: Record<string, number>; minGroup: number;
+  setTab: (t: TabId) => void; filtered: boolean; records: Rec[]; areaHeadcount: Record<string, number>; minGroup: number; onOpen: (n: number) => void;
   setOnly: (k: string, v: string) => void; population: number | null;
 }) {
   const hi = agg.final.distribution.ALTO + agg.final.distribution.MUY_ALTO;
@@ -359,7 +372,7 @@ function Resumen({ ev, g, agg, n, prev, fRecs, fScores, maxDomain, itemMap, setT
       <Priority fRecs={fRecs} fScores={fScores} areaHeadcount={areaHeadcount} headcount={ev.headcount} total={records.length} minGroup={minGroup} onPick={(a) => setOnly("departamento", a)} />
 
       <Panel title="Reactivos con mayor riesgo" subtitle="Ordenados por puntos promedio · barra: respuestas según su riesgo" right={<RiskLegend />}>
-        <ItemRows rows={items} />
+        <ItemRows rows={items} onOpen={onOpen} />
         <button className="mt-3 text-sm font-medium text-brand-700 hover:underline" onClick={() => setTab("reactivos")}>Ver los {g.items} reactivos →</button>
       </Panel>
     </div>
@@ -507,7 +520,7 @@ function topItems(g: GuideT, recs: Rec[], itemMap: Record<number, { domain: stri
     return { n, text: g.text(n), ...itemMap[n], counts, answered, mean: answered ? pts / answered : 0, unfav: pct(counts[3] + counts[4], answered), inverse: g.inverse.has(n) };
   }).filter((r) => r.answered > 0).sort((a, b) => b.mean - a.mean);
 }
-function ItemRows({ rows }: { rows: ItemRow[] }) {
+function ItemRows({ rows, onOpen }: { rows: ItemRow[]; onOpen?: (n: number) => void }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[720px]">
@@ -516,9 +529,10 @@ function ItemRows({ rows }: { rows: ItemRow[] }) {
         </tr></thead>
         <tbody className="divide-y divide-gray-100">
           {rows.map((r) => (
-            <tr key={r.n}>
+            <tr key={r.n} className={onOpen ? "cursor-pointer hover:bg-gray-50" : ""} onClick={() => onOpen?.(r.n)}
+              tabIndex={onOpen ? 0 : undefined} onKeyDown={(e) => { if (onOpen && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onOpen(r.n); } }}>
               <td className="td text-gray-500 tabular-nums">{r.n}</td>
-              <td className="td"><div className="text-gray-900">{r.text}</div><div className="text-[11px] text-gray-400">{r.domain} · {r.answered} respuestas{r.inverse ? " · reactivo positivo (Siempre = 0)" : ""}</div></td>
+              <td className="td"><div className="text-gray-900">{r.text}{onOpen && <span className="no-print ml-1.5 whitespace-nowrap text-xs font-medium text-brand-700">Ver ficha →</span>}</div><div className="text-[11px] text-gray-400">{r.domain} · {r.answered} respuestas{r.inverse ? " · reactivo positivo (Siempre = 0)" : ""}</div></td>
               <td className="td"><RiskDiverging counts={r.counts} label={`${r.n}. ${r.text}`} /></td>
               <td className="td text-right tabular-nums">{r.unfav}%</td>
               <td className="td text-right font-semibold tabular-nums">{r.mean.toFixed(2)}</td>
@@ -529,7 +543,7 @@ function ItemRows({ rows }: { rows: ItemRow[] }) {
     </div>
   );
 }
-function Reactivos({ g, fRecs, itemMap }: { g: GuideT; fRecs: Rec[]; itemMap: Record<number, { domain: string; category: string }> }) {
+function Reactivos({ g, fRecs, itemMap, onOpen }: { g: GuideT; fRecs: Rec[]; itemMap: Record<number, { domain: string; category: string }>; onOpen: (n: number) => void }) {
   const [q, setQ] = useState("");
   const [dom, setDom] = useState("");
   const [order, setOrder] = useState<"riesgo" | "numero">("riesgo");
@@ -549,7 +563,7 @@ function Reactivos({ g, fRecs, itemMap }: { g: GuideT; fRecs: Rec[]; itemMap: Re
         <select className="input max-w-[12rem]" value={order} onChange={(e) => setOrder(e.target.value as typeof order)}><option value="riesgo">Mayor riesgo primero</option><option value="numero">Por número</option></select>
         <span className="self-center text-sm text-gray-500">{rows.length} reactivos</span>
       </div>
-      <ItemRows rows={rows} />
+      <ItemRows rows={rows} onOpen={onOpen} />
     </Panel>
   );
 }

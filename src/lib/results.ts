@@ -1,4 +1,5 @@
 import "server-only";
+import { createHash } from "node:crypto";
 import { eq, inArray } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { GUIDES, type GuideId } from "@/lib/nom035/guides";
@@ -48,6 +49,7 @@ export const DIMENSIONS: { key: string; label: string }[] = [
 ];
 
 export type DashRecord = {
+  f?: string;
   d: Record<string, string>;
   it: (number | null)[];
   p: Record<string, string>;
@@ -57,7 +59,7 @@ export type DashRecord = {
 };
 
 /** Datos anónimos por trabajador (sin identificadores, nombres, fechas ni comentarios), en orden aleatorio. */
-export async function loadDashboard(evaluationId: string) {
+export async function loadDashboard(evaluationId: string, opts: { folio?: boolean } = {}) {
   const ev = await db.query.evaluations.findFirst({
     where: eq(schema.evaluations.id, evaluationId),
     with: { workplace: { with: { company: true, evaluations: true } } },
@@ -66,6 +68,8 @@ export async function loadDashboard(evaluationId: string) {
   const g = GUIDES[ev.guide];
   const rows = await db.query.responses.findMany({ where: eq(schema.responses.evaluationId, evaluationId) });
   const toRecord = (r: (typeof rows)[number]): DashRecord => ({
+    // Folio anónimo y estable (derivado del id, no reversible); solo para administradores y consultores
+    ...(opts.folio ? { f: createHash("sha256").update(r.id).digest("hex").slice(0, 6).toUpperCase() } : {}),
     d: Object.fromEntries(DIMENSIONS.map(({ key }) => [key, r.demographics[key] || "Sin dato"])),
     it: Array.from({ length: g.items }, (_, i) => {
       const v = (r.items as Record<string, number | null>)[i + 1];

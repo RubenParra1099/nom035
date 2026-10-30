@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 export default async function IndicatorsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const s = await requireUser();
-  const data = await loadDashboard(id);
+  const data = await loadDashboard(id, { folio: s.role !== "CLIENTE" });
   if (!data || !canSeeCompany(s, data.evaluation.companyId)) notFound();
   const ev = data.evaluation;
   return (
