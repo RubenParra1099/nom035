@@ -58,6 +58,18 @@ export async function deleteWorkplace(form: FormData) {
   revalidatePath("/admin");
 }
 
+export async function updateWorkplace(form: FormData) {
+  const s = await requireUser(["SUPERADMIN", "CONSULTOR"]);
+  const d = z.object({ id: z.string(), name: z.string().trim().min(2), address: z.string().trim().optional(), headcount: z.coerce.number().int().min(0) })
+    .parse({ id: form.get("id"), name: form.get("name"), address: form.get("address") || undefined, headcount: form.get("headcount") });
+  const [w] = await db.update(schema.workplaces).set({ name: d.name, address: d.address ?? null, headcount: d.headcount })
+    .where(eq(schema.workplaces.id, d.id)).returning();
+  if (!w) return;
+  await audit(s, "update", "workplace", w.id);
+  revalidatePath(`/admin/empresas/${w.companyId}`);
+  revalidatePath(`/admin/centros/${w.id}`);
+}
+
 export async function updateWorkplaceHeadcount(form: FormData) {
   await requireUser(["SUPERADMIN", "CONSULTOR"]);
   const id = String(form.get("id"));

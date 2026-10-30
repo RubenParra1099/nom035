@@ -5,7 +5,7 @@ import { db, schema } from "@/db";
 import { canEdit, canSeeCompany, requireUser } from "@/lib/auth";
 import { requiredGuide, sampleSize } from "@/lib/nom035/score";
 import ConfirmButton from "@/components/ConfirmButton";
-import { createEvaluation, createWorkplace, deleteCompany, deleteWorkplace, updateCompany, updateWorkplaceHeadcount } from "../../actions";
+import { createEvaluation, createWorkplace, deleteCompany, deleteWorkplace, updateCompany, updateWorkplace } from "../../actions";
 import { SECTORS } from "@/lib/sectors";
 
 const GUIDE_LABEL = { GUIA_II: "Guía II · 46", GUIA_III: "Guía III · 72" };
@@ -64,14 +64,20 @@ export default async function CompanyPage({ params }: { params: Promise<{ id: st
                     : <>Aplica Guía III · muestra mínima <b>{sampleSize(w.headcount)}</b></>}
                 </p>
               </div>
-              {edit && (
-                <form action={updateWorkplaceHeadcount} className="flex items-end gap-2">
-                  <input type="hidden" name="id" value={w.id} />
-                  <div><label className="label">Trabajadores</label><input name="headcount" type="number" min={0} defaultValue={w.headcount} className="input w-28" /></div>
-                  <button className="btn-secondary">Actualizar</button>
-                </form>
-              )}
             </div>
+            {edit && (
+              <details className="mt-2">
+                <summary className="cursor-pointer text-sm font-medium text-brand-700">Editar centro de trabajo</summary>
+                <form action={updateWorkplace} className="mt-2 grid gap-3 rounded-lg border border-gray-200 p-4 md:grid-cols-[2fr_3fr_1fr_auto] md:items-end">
+                  <input type="hidden" name="id" value={w.id} />
+                  <div><label className="label">Nombre</label><input name="name" className="input" defaultValue={w.name} required minLength={2} /></div>
+                  <div><label className="label">Domicilio</label><input name="address" className="input" defaultValue={w.address ?? ""} /></div>
+                  <div><label className="label">Trabajadores</label><input name="headcount" type="number" min={0} defaultValue={w.headcount} className="input" required /></div>
+                  <button className="btn-primary">Guardar cambios</button>
+                  <p className="text-xs text-gray-500 md:col-span-4">El número de trabajadores define la guía que aplica, la muestra mínima y el margen de error de los indicadores. Las evaluaciones y respuestas del centro no cambian.</p>
+                </form>
+              </details>
+            )}
 
             <div className="mt-4 overflow-x-auto">
               <table className="w-full">
