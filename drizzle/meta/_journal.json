@@ -15,6 +15,13 @@
       "when": 1793323520410,
       "tag": "0001_intervencion",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793326657484,
+      "tag": "0002_plantilla_areas",
+      "breakpoints": true
     }
   ]
 }

@@ -163,3 +163,25 @@ describe("KPIs y KRIs", () => {
     expect(k.length).toBe(23);
   });
 });
+
+import { wilson, propChange, meanChange, meanMoe, fpc } from "@/lib/nom035/stats";
+describe("estadística", () => {
+  it("Wilson 95%: 10 de 100 ≈ 5.5%–17.4%", () => {
+    const [lo, hi] = wilson(10, 100)!;
+    expect(lo).toBeCloseTo(5.52, 1); expect(hi).toBeCloseTo(17.44, 1);
+  });
+  it("corrección por población finita: encuestar a todos deja margen cero", () => {
+    expect(fpc(50, 50)).toBe(0);
+    expect(meanMoe([1, 2, 3, 4, 5], 5)).toBe(0);
+  });
+  it("cambio de proporciones: 30% vs 15% con n=200 es real; 12% vs 10% con n=50 no", () => {
+    expect(propChange(60, 200, 30, 200)!.significant).toBe(true);
+    expect(propChange(6, 50, 5, 50)!.significant).toBe(false);
+  });
+  it("cambio de promedios", () => {
+    const a = Array.from({ length: 100 }, (_, i) => 80 + (i % 10));
+    const b = Array.from({ length: 100 }, (_, i) => 100 + (i % 10));
+    expect(meanChange(a, b)!.significant).toBe(true);
+    expect(meanChange(a, a)!.significant).toBe(false);
+  });
+});

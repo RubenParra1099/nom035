@@ -1,5 +1,5 @@
 "use server";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db, schema } from "@/db";
@@ -102,4 +102,28 @@ export async function updateAts(form: FormData) {
   }).where(eq(schema.atsFollowups.id, id));
   await audit(s, `ats:${status}`, "ats_followup", id);
   revalidatePath(String(form.get("path") ?? "/admin"));
+}
+
+/* ---------- Plantilla por área ---------- */
+export async function saveAreas(form: FormData) {
+  const s = await requireUser(["SUPERADMIN", "CONSULTOR"]);
+  const workplaceId = String(form.get("workplaceId"));
+  const names = form.getAll("areaName").map((v) => String(v).trim());
+  const counts = form.getAll("areaHeadcount").map((v) => String(v).trim());
+  const extra = opt(form.get("newArea"));
+  const extraHc = opt(form.get("newHeadcount"));
+  const rows = names.map((name, i) => ({ name, headcount: counts[i] }));
+  if (extra) rows.push({ name: extra, headcount: extraHc ?? "0" });
+  for (const r of rows) {
+    if (!r.name) continue;
+    if (r.headcount === "") {
+      await db.delete(schema.workplaceAreas).where(and(eq(schema.workplaceAreas.workplaceId, workplaceId), eq(schema.workplaceAreas.name, r.name)));
+      continue;
+    }
+    const headcount = z.coerce.number().int().min(0).parse(r.headcount);
+    await db.insert(schema.workplaceAreas).values({ workplaceId, name: r.name, headcount })
+      .onConflictDoUpdate({ target: [schema.workplaceAreas.workplaceId, schema.workplaceAreas.name], set: { headcount } });
+  }
+  await audit(s, "update", "workplace_areas", workplaceId);
+  revalidatePath(`/admin/centros/${workplaceId}`);
 }

@@ -5,7 +5,7 @@ import { db, schema } from "@/db";
 import { canEdit, canSeeCompany, requireUser } from "@/lib/auth";
 import ConfirmButton from "@/components/ConfirmButton";
 import EvalHeader from "@/components/EvalHeader";
-import { addComplaint, addTraining, deleteComplaint, deleteTraining, updateComplaint } from "../../gestion-actions";
+import { addComplaint, addTraining, deleteComplaint, deleteTraining, saveAreas, updateComplaint } from "../../gestion-actions";
 
 const CAT = { VIOLENCIA: "Violencia laboral", ENTORNO: "Entorno organizacional", CARGA: "Carga / jornada", OTRO: "Otro" } as const;
 const TOPIC = { POLITICA: "Política de prevención", VIOLENCIA: "Violencia laboral", LIDERAZGO: "Liderazgo", CARGA: "Carga y organización", OTRO: "Otro" } as const;
@@ -21,12 +21,15 @@ export default async function WorkplacePage({ params, searchParams }: { params: 
   const edit = canEdit(s);
   const ctx = wp.evaluations.find((e) => e.id === evId) ?? [...wp.evaluations].sort((a, b) => +b.createdAt - +a.createdAt)[0];
   const intro = "Buzón de quejas y capacitación del centro de trabajo; alimentan los indicadores de efectividad.";
-  const [complaints, trainings] = await Promise.all([
+  const [complaints, trainings, areaRows] = await Promise.all([
     db.query.complaints.findMany({ where: eq(schema.complaints.workplaceId, id), orderBy: [desc(schema.complaints.receivedAt)] }),
     db.query.trainings.findMany({ where: eq(schema.trainings.workplaceId, id), orderBy: [desc(schema.trainings.heldAt)] }),
+    db.query.workplaceAreas.findMany({ where: eq(schema.workplaceAreas.workplaceId, id) }),
   ]);
   const today = new Date().toISOString().slice(0, 10);
-  const areas = [...new Set(wp.evaluations.flatMap((e) => e.departments))].sort();
+  const areas = [...new Set([...wp.evaluations.flatMap((e) => e.departments), ...areaRows.map((a) => a.name)])].sort((a, b) => a.localeCompare(b, "es"));
+  const hcOf = (a: string) => areaRows.find((r) => r.name === a)?.headcount;
+  const areaTotal = areaRows.reduce((t, a) => t + a.headcount, 0);
   const open = complaints.filter((c) => c.status !== "CERRADA");
   const closed = complaints.filter((c) => c.closedAt);
   const avg = closed.length ? closed.reduce((a, c) => a + days(c.receivedAt, c.closedAt!), 0) / closed.length : null;
@@ -53,6 +56,37 @@ export default async function WorkplacePage({ params, searchParams }: { params: 
           <p className="max-w-3xl text-sm text-gray-500">{intro}</p>
         </div>
       )}
+
+      <section className="card space-y-4 p-5">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div><h2 className="text-lg font-semibold">Plantilla por área</h2>
+            <p className="text-sm text-gray-500">Número de trabajadores de cada área. Permite medir la participación y representatividad por área y calcular exacta la cobertura de capacitación.</p></div>
+          <div className="text-sm"><div className="text-xs text-gray-500">Suma de áreas / plantilla del centro</div>
+            <div className={`text-xl font-bold tabular-nums ${areaTotal && areaTotal !== wp.headcount ? "text-amber-600" : ""}`}>{areaTotal} / {wp.headcount}</div></div>
+        </div>
+        {edit ? (
+          <form action={saveAreas} className="space-y-3">
+            <input type="hidden" name="workplaceId" value={id} />
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {areas.map((a) => (
+                <label key={a} className="flex items-center justify-between gap-3 rounded-lg border border-line px-3 py-2 text-sm">
+                  <span className="truncate">{a}</span>
+                  <input type="hidden" name="areaName" value={a} />
+                  <input type="number" min={0} name="areaHeadcount" defaultValue={hcOf(a) ?? ""} placeholder="—" className="w-24 rounded border border-gray-300 bg-surface px-2 py-1 text-right text-sm tabular-nums" />
+                </label>
+              ))}
+            </div>
+            <div className="flex flex-wrap items-end gap-3">
+              <div><label className="label">Otra área</label><input name="newArea" className="input w-56" placeholder="Nombre del área" /></div>
+              <div><label className="label">Trabajadores</label><input type="number" min={0} name="newHeadcount" className="input w-32" /></div>
+              <button className="btn-primary">Guardar plantilla</button>
+            </div>
+            {areaTotal > 0 && areaTotal !== wp.headcount && <p className="text-xs text-amber-700">La suma de las áreas no coincide con la plantilla del centro ({wp.headcount}). Revisa que estén todas las áreas.</p>}
+          </form>
+        ) : (
+          <ul className="grid gap-2 text-sm sm:grid-cols-3">{areaRows.map((a) => <li key={a.id} className="flex justify-between rounded border border-line px-3 py-2"><span>{a.name}</span><b className="tabular-nums">{a.headcount}</b></li>)}</ul>
+        )}
+      </section>
 
       <section className="card space-y-4 p-5">
         <div className="flex flex-wrap items-end justify-between gap-3">

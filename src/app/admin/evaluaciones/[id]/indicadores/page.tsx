@@ -18,7 +18,7 @@ export default async function IndicatorsPage({ params }: { params: Promise<{ id:
     <div className="space-y-4">
       <EvalHeader ev={{ id: ev.id, name: ev.name, guide: ev.guide, includeGuideI: ev.includeGuideI, workplaceId: ev.workplaceId, workplaceName: ev.workplace, companyId: ev.companyId, companyName: ev.company }}
         active="tablero" canSeeConfidential={s.role !== "CLIENTE"} title={`Tablero · ${ev.name}`} subtitle={`${ev.company} · ${ev.workplace} · ${GUIDES[ev.guide].name}`} right={<PrintButton />} />
-      <Dashboard evaluation={ev} records={data.records} previous={data.previous} intervention={data.intervention} dimensions={DIMENSIONS}
+      <Dashboard evaluation={ev} records={data.records} previous={data.previous} intervention={data.intervention} areaHeadcount={data.areaHeadcount} dimensions={DIMENSIONS}
         minGroup={MIN_GROUP} canSeeConfidential={s.role !== "CLIENTE"} />
     </div>
   );

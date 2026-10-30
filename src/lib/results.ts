@@ -109,8 +109,11 @@ export async function loadDashboard(evaluationId: string) {
     ats: atsRows,
   };
 
+  const areaRows = await db.query.workplaceAreas.findMany({ where: eq(schema.workplaceAreas.workplaceId, ev.workplaceId) });
+  const areaHeadcount = Object.fromEntries(areaRows.map((r) => [r.name, r.headcount]));
+
   return {
-    intervention,
+    intervention, areaHeadcount,
     evaluation: {
       id: ev.id, name: ev.name, guide: ev.guide, includeGuideI: ev.includeGuideI,
       company: ev.workplace.company.name, workplace: ev.workplace.name, headcount: ev.workplace.headcount,

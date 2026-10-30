@@ -4,6 +4,7 @@
  */
 import { C, D, GUIDES, type GuideId } from "./guides";
 import { aggregate, scoreWorker, type ScoreResult } from "./score";
+import { meanChange, meanMoe, propChange, wilson, type Change } from "./stats";
 
 export type KpiRec = { d: Record<string, string>; it: (number | null)[]; g1: 0 | 1 | 2 };
 export type InterventionData = {
@@ -18,7 +19,10 @@ export type Kpi = {
   id: string; dim: 1 | 2 | 3 | 4; name: string; short: string; type: "Efectividad" | "Impacto" | "Tendencia";
   value: number | null; display: string; light: Light; detail: string;
   formula: string; frequency: string; source: string; thresholds: string; scope: "encuesta" | "centro";
+  /** Margen de error al 95% (misma unidad que el valor) y cambio contra el periodo anterior. */
+  n?: number; moe?: number | null; change?: (Change & { unit: string }) | null;
 };
+type Stat = { kind: "prop"; x: number; n: number } | { kind: "mean"; values: number[] };
 
 export const DIM_NAMES: Record<1 | 2 | 3 | 4, string> = {
   1: "Liderazgo y relaciones en el trabajo",
@@ -43,9 +47,64 @@ const ITEMS: Record<GuideId, Record<string, number[]>> = {
   GUIA_II: { hostig: [34, 35, 36, 37, 38, 39], peers: [30, 31, 32], jornada: [14, 15], capac: [26, 27], estab: [] },
 };
 
+/** Estadísticos por trabajador de los KPIs de encuesta (para margen de error y pruebas de cambio). */
+function surveyStats(guide: GuideId, records: KpiRec[]): Record<string, Stat> {
+  const g = GUIDES[guide];
+  const sets = ITEMS[guide];
+  const sc = records.map((r) => scoreWorker(guide, Object.fromEntries(r.it.map((v, i) => [i + 1, v]))));
+  const N = records.length;
+  const risk = (r: KpiRec, n: number) => { const v = r.it[n - 1]; return v === null || v === undefined ? null : g.inverse.has(n) ? v : 4 - v; };
+  const hi = (d: string) => ({ kind: "prop" as const, x: sc.filter((s) => s.domains[d] >= g.domainCuts[d][2]).length, n: N });
+  const any = (items: number[]) => ({ kind: "prop" as const, x: records.filter((r) => items.some((k) => { const p = risk(r, k); return p !== null && p >= 3; })).length, n: N });
+  const fav = (d: string) => ({ kind: "mean" as const, values: sc.map((s) => 100 * (1 - s.domains[d] / (g.domains[d].length * 4))) });
+  const share = (items: number[], pred: (p: number) => boolean) => ({ kind: "mean" as const, values: records.map((r) => {
+    const ps = items.map((k) => risk(r, k)).filter((p): p is number => p !== null);
+    return ps.length ? (ps.filter(pred).length / ps.length) * 100 : null;
+  }).filter((v): v is number => v !== null) });
+  const out: Record<string, Stat> = {
+    "LR-01": hi(D.VIOL), "LR-02": any(sets.hostig), "LR-03": fav(D.LIDER), "LR-06": share(sets.peers, (p) => p <= 1),
+    "CC-01": hi(D.CARGA), "CC-02": any(sets.jornada), "CC-03": hi(D.INTERF), "CC-04": fav(D.CONTROL),
+    "EO-04": share(sets.capac, (p) => p >= 3),
+    "EI-01": { kind: "mean", values: sc.map((s) => s.final) },
+    "EI-02": { kind: "prop", x: sc.filter((s) => s.finalLevel === "ALTO" || s.finalLevel === "MUY_ALTO").length, n: N },
+  };
+  if (guide === "GUIA_III") {
+    out["LR-05"] = hi(D.RECON); out["EO-02"] = hi(D.PERT); out["EO-03"] = any(sets.estab);
+    out["EO-01"] = { kind: "mean", values: sc.map((s) => 100 * (1 - s.categories[C.ENT] / 40)) };
+  }
+  return out;
+}
+
 export function computeKpis(opts: {
   guide: GuideId; records: KpiRec[]; prevRecords?: KpiRec[]; headcount: number; minGroup: number;
-  intervention?: InterventionData; today?: string;
+  intervention?: InterventionData; today?: string; areaHeadcount?: Record<string, number>;
+  /** Población de la selección para la corrección por población finita (sin filtros = plantilla del centro). */
+  population?: number | null;
+}): Kpi[] {
+  const list = computeKpisRaw(opts);
+  // Margen de error y significancia del cambio contra el periodo anterior
+  const now = surveyStats(opts.guide, opts.records);
+  const before = opts.prevRecords && opts.prevRecords.length >= opts.minGroup ? surveyStats(opts.guide, opts.prevRecords) : null;
+  const N = opts.population === null ? undefined : opts.population ?? (opts.headcount > 0 ? opts.headcount : undefined);
+  for (const k of list) {
+    const st = now[k.id];
+    if (!st || k.value === null) continue;
+    if (k.id !== "EI-01" && k.id !== "EI-02") {
+      if (st.kind === "prop") { const ci = wilson(st.x, st.n, N); k.n = st.n; k.moe = ci ? (ci[1] - ci[0]) / 2 : null; }
+      else { k.n = st.values.length; k.moe = meanMoe(st.values, N); }
+    }
+    const b = before?.[k.id];
+    if (b && b.kind === st.kind) {
+      const c = st.kind === "prop" ? propChange(st.x, st.n, (b as { x: number }).x, (b as { n: number }).n) : meanChange(st.values, (b as { values: number[] }).values);
+      k.change = c ? { ...c, unit: st.kind === "prop" ? "pp" : k.id === "EI-01" ? "pts" : "pts" } : null;
+    }
+  }
+  return list;
+}
+
+function computeKpisRaw(opts: {
+  guide: GuideId; records: KpiRec[]; prevRecords?: KpiRec[]; headcount: number; minGroup: number;
+  intervention?: InterventionData; today?: string; areaHeadcount?: Record<string, number>;
 }): Kpi[] {
   const { guide, records, prevRecords, headcount, minGroup, intervention } = opts;
   const today = opts.today ?? new Date().toISOString().slice(0, 10);
@@ -239,10 +298,12 @@ export function computeKpis(opts: {
   let cfc: number | null = null, cfcDetail = "Ninguna área con calificación final Alto+";
   if (hiAreas.length && iv) {
     const scale = N ? Math.max(1, headcount / N) : 1;
-    const plant = hiAreas.reduce((a, x) => a + x.n * scale, 0);
+    const ah = opts.areaHeadcount ?? {};
+    const exact = hiAreas.every((x) => ah[x.k] > 0);
+    const plant = hiAreas.reduce((a, x) => a + (ah[x.k] > 0 ? ah[x.k] : x.n * scale), 0);
     const trained = iv.trainings.filter((t) => t.area && hiAreas.some((h) => h.k === t.area)).reduce((a, t) => a + t.attendees, 0);
     cfc = Math.min(100, (trained / plant) * 100);
-    cfcDetail = `${trained} capacitados en ${hiAreas.map((h) => h.k).join(", ")} · plantilla estimada ${Math.round(plant)}`;
+    cfcDetail = `${trained} capacitados en ${hiAreas.map((h) => h.k).join(", ")} · plantilla ${exact ? "" : "estimada "}${Math.round(plant)}`;
   }
   push({ id: "EI-05", dim: 4, name: "Cobertura Focalizada de Capacitación", short: "CFC", type: "Efectividad", scope: "centro",
     value: cfc, display: f1(cfc, "%"), detail: cfcDetail,

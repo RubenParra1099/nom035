@@ -4,6 +4,7 @@ import { GUIDES, LEVELS, LEVEL_ACTION, LEVEL_LABEL, itemsOfDomain, type GuideId,
 import { aggregate, sampleSize, scoreWorker, type ScoreResult } from "@/lib/nom035/score";
 import { INTERVENTIONS, GUIA_I_ACTION } from "@/lib/nom035/interventions";
 import { AtsFunnel, CorrelationMatrix, DemandControl, FinalHistogram, ItemPareto, Sparkline, Waterfall } from "./advanced";
+import { meanChange, meanMoe, wilson } from "@/lib/nom035/stats";
 import { computeKpis, DIM_NAMES, type InterventionData, type Kpi, type Light } from "@/lib/nom035/kpis";
 import {
   BulletBar, FreqBars, Gauge, HeatCell, LEVEL_HEX, LEVEL_TEXT, LevelDonut, LevelStack, Radar, RiskDiverging, RiskLegend,
@@ -11,13 +12,14 @@ import {
 } from "./charts";
 
 type Rec = { d: Record<string, string>; it: (number | null)[]; p: Record<string, string>; g1: 0 | 1 | 2; cli: boolean | null; jefe: boolean | null };
-type Prev = { id: string; name: string; n: number; final: number; categories: Record<string, number>; domains: Record<string, number> };
+type Prev = { id: string; name: string; n: number; final: number; categories: Record<string, number>; domains: Record<string, number>; finals: number[] };
 type PrevRaw = { id: string; name: string; records: Rec[] };
 type Props = {
   evaluation: { id: string; name: string; guide: GuideId; includeGuideI: boolean; company: string; workplace: string; headcount: number };
   records: Rec[];
   previous: PrevRaw[];
   intervention: InterventionData;
+  areaHeadcount: Record<string, number>;
   dimensions: { key: string; label: string }[];
   minGroup: number;
   canSeeConfidential: boolean;
@@ -63,7 +65,7 @@ export default function Dashboard(props: Props) {
   return <TipProvider><DashboardInner {...props} /></TipProvider>;
 }
 
-function DashboardInner({ evaluation: ev, records, previous, intervention, dimensions, minGroup, canSeeConfidential }: Props) {
+function DashboardInner({ evaluation: ev, records, previous, intervention, areaHeadcount, dimensions, minGroup, canSeeConfidential }: Props) {
   const g = GUIDES[ev.guide];
   const itemMap = useMemo(() => itemsOfDomain(g), [g]);
   const maxDomain = useMemo(() => Object.fromEntries(Object.entries(g.domains).map(([d, its]) => [d, its.length * 4])), [g]);
@@ -94,8 +96,9 @@ function DashboardInner({ evaluation: ev, records, previous, intervention, dimen
     if (!pe) return undefined;
     const rs = pe.records.filter((r) => match(r));
     if (rs.length < minGroup) return undefined;
-    const a = aggregate(ev.guide, rs.map((r) => scoreWorker(ev.guide, Object.fromEntries(r.it.map((v, i) => [i + 1, v])))));
-    return { id: pe.id, name: pe.name, n: a.n, final: a.final.mean,
+    const scs = rs.map((r) => scoreWorker(ev.guide, Object.fromEntries(r.it.map((v, i) => [i + 1, v]))));
+    const a = aggregate(ev.guide, scs);
+    return { id: pe.id, name: pe.name, n: a.n, final: a.final.mean, finals: scs.map((x) => x.final),
       categories: Object.fromEntries(a.categories.map((c) => [c.name, c.mean])), domains: Object.fromEntries(a.domains.map((d) => [d.name, d.mean])) };
   }, [previous, compareId, filters]); // eslint-disable-line react-hooks/exhaustive-deps
   const filtered = Object.values(filters).some((v) => v.length);
@@ -105,6 +108,14 @@ function DashboardInner({ evaluation: ev, records, previous, intervention, dimen
   const setOnly = (k: string, v: string) => setFilters((f) => ({ ...f, [k]: [v] }));
 
   const enough = n >= minGroup;
+  // Población de la selección (para la corrección por población finita): plantilla del centro sin filtros,
+  // suma de plantillas por área si solo se filtra por área conocida; si hay otros filtros, se desconoce.
+  const population: number | null = (() => {
+    const act = Object.entries(filters).filter(([, v]) => v.length);
+    if (!act.length) return ev.headcount || null;
+    if (act.length === 1 && act[0][0] === "departamento" && act[0][1].every((a) => areaHeadcount[a] > 0)) return act[0][1].reduce((t, a) => t + areaHeadcount[a], 0);
+    return null;
+  })();
 
   return (
     <div className="space-y-4">
@@ -127,8 +138,8 @@ function DashboardInner({ evaluation: ev, records, previous, intervention, dimen
         <Empty>La selección tiene {n} {n === 1 ? "respuesta" : "respuestas"}. Para proteger la confidencialidad se requieren al menos {minGroup}. Quita algún filtro.</Empty>
       ) : (
         <>
-          {tab === "resumen" && <Resumen {...{ ev, g, agg, n, prev, fRecs, fScores, maxDomain, maxCat, itemMap, setTab, filtered, records }} />}
-          {tab === "kpis" && <Kpis kpis={computeKpis({ guide: ev.guide, records: fRecs, minGroup, headcount: ev.headcount, intervention,
+          {tab === "resumen" && <Resumen {...{ ev, g, agg, n, prev, fRecs, fScores, maxDomain, maxCat, itemMap, setTab, filtered, records, areaHeadcount, minGroup, setOnly, population }} />}
+          {tab === "kpis" && <Kpis kpis={computeKpis({ guide: ev.guide, records: fRecs, minGroup, headcount: ev.headcount, intervention, areaHeadcount, population,
             prevRecords: previous.find((p) => p.id === compareId)?.records.filter((r) => match(r)) })} filtered={filtered} hasPrev={!!compareId}
             history={(() => {
               // Serie histórica de los KPIs de encuesta: periodos anteriores (del más antiguo al más reciente) + actual, con los mismos filtros
@@ -142,7 +153,7 @@ function DashboardInner({ evaluation: ev, records, previous, intervention, dimen
           {tab === "grupos" && <Grupos {...{ ev, g, dimensions, fRecs, fScores, minGroup, setOnly, maxDomain }} />}
           {tab === "reactivos" && <Reactivos {...{ g, fRecs, itemMap }} />}
           {tab === "guia1" && <GuiaI {...{ ev, fRecs, dimensions, minGroup, canSeeConfidential, ats: intervention.ats }} />}
-          {tab === "perfil" && <Perfil {...{ dimensions, fRecs, filters, toggle }} />}
+          {tab === "perfil" && <><Participation records={records} scores={scores} guide={ev.guide} areaHeadcount={areaHeadcount} minGroup={minGroup} /><Perfil {...{ dimensions, fRecs, filters, toggle }} /></>}
           {tab === "plan" && <Plan {...{ ev, g, agg, n, fRecs, maxDomain }} />}
         </>
       )}
@@ -268,10 +279,11 @@ type AggT = ReturnType<typeof aggregate>;
 type GuideT = (typeof GUIDES)[GuideId];
 
 /* ================= Resumen ================= */
-function Resumen({ ev, g, agg, n, prev, fRecs, fScores, maxDomain, itemMap, setTab, filtered, records }: {
+function Resumen({ ev, g, agg, n, prev, fRecs, fScores, maxDomain, itemMap, setTab, filtered, records, areaHeadcount, minGroup, setOnly, population }: {
   ev: Props["evaluation"]; g: GuideT; agg: AggT; n: number; prev?: Prev; fRecs: Rec[]; fScores: ScoreResult[];
   maxDomain: Record<string, number>; maxCat: Record<string, number>; itemMap: Record<number, { domain: string; category: string }>;
-  setTab: (t: TabId) => void; filtered: boolean; records: Rec[];
+  setTab: (t: TabId) => void; filtered: boolean; records: Rec[]; areaHeadcount: Record<string, number>; minGroup: number;
+  setOnly: (k: string, v: string) => void; population: number | null;
 }) {
   const hi = agg.final.distribution.ALTO + agg.final.distribution.MUY_ALTO;
   const sample = ev.guide === "GUIA_III" ? sampleSize(ev.headcount) : ev.headcount;
@@ -279,8 +291,7 @@ function Resumen({ ev, g, agg, n, prev, fRecs, fScores, maxDomain, itemMap, setT
   const catRank = [...agg.categories].sort((a, b) => riskIndex(b.mean, g.categoryCuts[b.name], 999) - riskIndex(a.mean, g.categoryCuts[a.name], 999));
   const items = topItems(g, fRecs, itemMap).slice(0, 8);
   const ats = fRecs.filter((r) => r.g1 === 2).length;
-  void fScores;
-
+  
   // Hallazgos automáticos
   const insights: string[] = [];
   insights.push(`La calificación final promedio es ${fmt1(agg.final.mean)} (nivel ${LEVEL_LABEL[agg.final.level].toLowerCase()}); ${pct(hi, n)}% de los trabajadores está en nivel alto o muy alto.`);
@@ -312,6 +323,7 @@ function Resumen({ ev, g, agg, n, prev, fRecs, fScores, maxDomain, itemMap, setT
           <div className="flex flex-col items-center">
             <Gauge value={agg.final.mean} cuts={g.finalCuts} max={g.items * 4 * 0.5} prev={prev?.final} />
             <div className="mt-1 flex items-center gap-2"><Badge level={agg.final.level} /><Delta now={agg.final.mean} before={prev?.final} /></div>
+            <FinalPrecision finals={fScores.map((x) => x.final)} headcount={population ?? 0} prev={prev} />
             <p className="mt-3 text-xs leading-relaxed text-gray-600">{LEVEL_ACTION[agg.final.level]}</p>
           </div>
         </Panel>
@@ -343,6 +355,8 @@ function Resumen({ ev, g, agg, n, prev, fRecs, fScores, maxDomain, itemMap, setT
             compare={prev ? agg.domains.map((d) => riskIndex(prev.domains[d.name] ?? 0, g.domainCuts[d.name], maxDomain[d.name])) : undefined} />
         </Panel>
       </div>
+
+      <Priority fRecs={fRecs} fScores={fScores} areaHeadcount={areaHeadcount} headcount={ev.headcount} total={records.length} minGroup={minGroup} onPick={(a) => setOnly("departamento", a)} />
 
       <Panel title="Reactivos con mayor riesgo" subtitle="Ordenados por puntos promedio · barra: respuestas según su riesgo" right={<RiskLegend />}>
         <ItemRows rows={items} />
@@ -742,10 +756,16 @@ function Kpis({ kpis, filtered, hasPrev, history }: { kpis: Kpi[]; filtered: boo
                       <span className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: st.bg, color: st.fg }}>{st.label}</span>
                     </div>
                     <div className="mt-2 flex items-end justify-between gap-2">
-                      <div className="text-3xl font-bold tabular-nums text-gray-900">{k.display}</div>
+                      <div className="flex items-baseline gap-1.5">
+                        <span className="text-3xl font-bold tabular-nums text-gray-900">{k.display}</span>
+                        {k.moe != null && (k.moe > 0.05
+                          ? <span className="text-xs tabular-nums text-gray-500" title={`Margen de error al 95% con ${k.n} respuestas`}>± {fmt1(k.moe)}</span>
+                          : <span className="text-xs text-gray-500" title="Se evaluó a toda la plantilla: sin error de muestreo">censo</span>)}
+                      </div>
                       {history && k.scope === "encuesta" && history.byId[k.id] && <Sparkline values={history.byId[k.id]} labels={history.labels} invert={HIGHER_BETTER.has(k.id)} />}
                     </div>
                     <p className="mt-1 text-xs text-gray-600">{k.detail}</p>
+                    {k.change && <ChangeNote c={k.change} />}
                     <button className="mt-auto pt-3 text-left text-xs font-medium text-brand-700 hover:underline print:hidden" onClick={() => setOpen(isOpen ? null : k.id)}>
                       {isOpen ? "Ocultar ficha técnica" : "Ver ficha técnica"}
                     </button>
@@ -814,5 +834,109 @@ function Analisis({ g, agg, prev, fRecs, fScores, dimensions, minGroup }: {
         <CorrelationMatrix g={g} scores={fScores} />
       </Panel>
     </div>
+  );
+}
+
+/* ================= Precisión estadística ================= */
+function ChangeNote({ c }: { c: { delta: number; p: number; significant: boolean; unit: string } }) {
+  return (
+    <p className={`mt-1.5 inline-flex w-fit items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium ${c.significant ? "bg-brand-50 text-brand-700" : "bg-gray-100 text-gray-600"}`}
+      title={`p = ${c.p < 0.001 ? "< 0.001" : c.p.toFixed(3)} (prueba de diferencia al 95%)`}>
+      {c.delta > 0 ? "▲" : c.delta < 0 ? "▼" : "="} {c.delta > 0 ? "+" : ""}{fmt1(c.delta)} {c.unit} vs periodo anterior · {c.significant ? "cambio real" : "dentro del margen de error"}
+    </p>
+  );
+}
+function FinalPrecision({ finals, headcount, prev }: { finals: number[]; headcount: number; prev?: Prev }) {
+  const moe = meanMoe(finals, headcount || undefined);
+  const ch = prev ? meanChange(finals, prev.finals) : null;
+  return (
+    <div className="mt-2 space-y-1 text-center text-xs text-gray-500">
+      {headcount > 0 && finals.length >= headcount
+        ? <div>Se evaluó a toda la plantilla: el resultado no tiene error de muestreo.</div>
+        : moe !== null && <div>Margen de error: <b className="text-gray-700">± {fmt1(moe)} pts</b> (95%, {headcount ? `${finals.length} de ${headcount} trabajadores` : `${finals.length} respuestas; plantilla del grupo desconocida`})</div>}
+      {ch && <ChangeNote c={{ ...ch, unit: "pts" }} />}
+    </div>
+  );
+}
+
+/* ================= Prioridad por área ================= */
+function Priority({ fRecs, fScores, areaHeadcount, headcount, total, minGroup, onPick }: {
+  fRecs: Rec[]; fScores: ScoreResult[]; areaHeadcount: Record<string, number>; headcount: number; total: number; minGroup: number; onPick: (a: string) => void;
+}) {
+  const { show, hide } = useTip();
+  const groups: Record<string, ScoreResult[]> = {};
+  fRecs.forEach((r, i) => { if (r.d.departamento !== "Sin dato") (groups[r.d.departamento] ??= []).push(fScores[i]); });
+  const scale = total ? Math.max(1, headcount / total) : 1;
+  const rows = Object.entries(groups).filter(([, v]) => v.length >= minGroup).map(([name, v]) => {
+    const hi = v.filter((s) => s.finalLevel === "ALTO" || s.finalLevel === "MUY_ALTO").length;
+    const plant = areaHeadcount[name] > 0 ? areaHeadcount[name] : Math.round(v.length * scale);
+    const ci = wilson(hi, v.length, plant);
+    const share = (hi / v.length) * 100;
+    return { name, n: v.length, plant, exact: areaHeadcount[name] > 0, share, ci, exposed: (share / 100) * plant };
+  }).sort((a, b) => b.exposed - a.exposed);
+  if (rows.length < 2) return null;
+  const max = Math.max(...rows.map((r) => (r.ci ? (r.ci[1] / 100) * r.plant : r.exposed)));
+  return (
+    <Panel title="Dónde intervenir primero" subtitle="Personas en nivel alto o muy alto estimadas por área = % en Alto+ × plantilla del área. La línea es el margen de error al 95%"
+      right={<span className="text-xs text-gray-500">Clic en un área para filtrar</span>}>
+      <div className="space-y-1.5">
+        {rows.map((r, i) => {
+          const lo = r.ci ? (r.ci[0] / 100) * r.plant : r.exposed, up = r.ci ? (r.ci[1] / 100) * r.plant : r.exposed;
+          return (
+            <button key={r.name} type="button" onClick={() => onPick(r.name)}
+              className="grid w-full grid-cols-[1.5rem_minmax(0,11rem)_1fr_9rem] items-center gap-3 rounded px-1 py-1 text-left text-sm hover:bg-gray-50"
+              onMouseMove={(e) => show(e, <><b>{r.name}</b><br />{fmt1(r.share)}% en Alto+ ({r.ci ? `${fmt1(r.ci[0])}–${fmt1(r.ci[1])}%` : "—"})<br />Plantilla {r.plant}{r.exact ? "" : " (estimada)"} · {r.n} respuestas<br />≈ {Math.round(r.exposed)} personas ({Math.round(lo)}–{Math.round(up)})</>)} onMouseLeave={hide}>
+              <span className={`grid h-6 w-6 place-items-center rounded-full text-xs font-bold ${i < 2 ? "bg-red-50 text-red-700" : "bg-gray-100 text-gray-600"}`}>{i + 1}</span>
+              <span className="truncate text-ink">{r.name}</span>
+              <span className="relative block h-5">
+                <span className="absolute inset-y-0 left-0 rounded-r" style={{ width: `${(r.exposed / max) * 100}%`, background: i < 2 ? "var(--risk-4)" : "var(--risk-3)" }} />
+                <span className="absolute top-1/2 h-px -translate-y-1/2" style={{ left: `${(lo / max) * 100}%`, width: `${((up - lo) / max) * 100}%`, background: "var(--ink)" }} />
+                <span className="absolute top-1/2 h-2.5 w-px -translate-y-1/2" style={{ left: `${(lo / max) * 100}%`, background: "var(--ink)" }} />
+                <span className="absolute top-1/2 h-2.5 w-px -translate-y-1/2" style={{ left: `${(up / max) * 100}%`, background: "var(--ink)" }} />
+              </span>
+              <span className="text-right tabular-nums"><b className="text-ink">≈ {Math.round(r.exposed)}</b> <span className="text-xs text-gray-500">de {r.plant}{r.exact ? "" : "*"} · {fmt1(r.share)}%</span></span>
+            </button>
+          );
+        })}
+      </div>
+      {rows.some((r) => !r.exact) && <p className="mt-2 text-xs text-gray-500">* Plantilla estimada con la proporción de respuestas. Captura la plantilla por área en “Quejas y capacitación” para un cálculo exacto.</p>}
+    </Panel>
+  );
+}
+
+/* ================= Participación por área ================= */
+function Participation({ records, scores, guide, areaHeadcount, minGroup }: { records: Rec[]; scores: ScoreResult[]; guide: GuideId; areaHeadcount: Record<string, number>; minGroup: number }) {
+  const areas = Object.keys(areaHeadcount);
+  if (!areas.length) return (
+    <div className="card mb-4 p-4 text-sm text-gray-600">Captura la <b>plantilla por área</b> en “Quejas y capacitación” para ver la participación, el margen de error y la representatividad de cada área.</div>
+  );
+  const rows = areas.map((a) => {
+    const idx = records.map((r, i) => (r.d.departamento === a ? i : -1)).filter((i) => i >= 0);
+    const plant = areaHeadcount[a], n = idx.length;
+    const need = guide === "GUIA_III" ? sampleSize(plant) : plant;
+    const moe = n >= 2 ? meanMoe(idx.map((i) => scores[i].final), plant) : null;
+    return { a, plant, n, need, part: plant ? (n / plant) * 100 : 0, moe, ok: n >= need };
+  }).sort((x, y) => x.part - y.part);
+  return (
+    <Panel title="Participación y representatividad por área" subtitle={`Respuestas contra la plantilla de cada área. ${guide === "GUIA_III" ? "Muestra requerida con la fórmula de la norma aplicada a cada área." : "Guía II: se aplica a todos los trabajadores."}`} className="mb-4">
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[640px]">
+          <thead className="border-b border-line"><tr><th className="th">Área</th><th className="th text-right">Plantilla</th><th className="th text-right">Respuestas</th><th className="th w-1/3">Participación</th><th className="th text-right">Margen ±</th><th className="th">Representativa</th></tr></thead>
+          <tbody className="divide-y divide-gray-100">
+            {rows.map((r) => (
+              <tr key={r.a}>
+                <td className="td text-ink">{r.a}</td>
+                <td className="td text-right tabular-nums">{r.plant}</td>
+                <td className="td text-right tabular-nums">{r.n}</td>
+                <td className="td"><div className="flex items-center gap-2"><div className="h-2.5 flex-1 rounded-full bg-gray-100"><div className="h-full rounded-full" style={{ width: `${Math.min(100, r.part)}%`, background: r.ok ? "var(--risk-0)" : "var(--lv-medio)" }} /></div><span className="w-12 text-right text-xs tabular-nums">{Math.round(r.part)}%</span></div></td>
+                <td className="td text-right tabular-nums">{r.moe === null ? "—" : `${fmt1(r.moe)} pts`}</td>
+                <td className="td text-sm">{r.n < minGroup ? <span className="text-gray-500">Grupo pequeño</span> : r.ok ? <span className="text-green-700">Sí ✓</span> : <span className="text-amber-600">Faltan {r.need - r.n}</span>}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="mt-2 text-xs text-gray-500">Margen ±: incertidumbre de la calificación final promedio del área al 95%, con corrección por población finita.</p>
+    </Panel>
   );
 }

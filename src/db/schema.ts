@@ -83,6 +83,14 @@ export const confidentialContacts = pgTable("confidential_contacts", {
   createdAt: createdAt(),
 });
 
+/** Plantilla por área del centro de trabajo (participación, representatividad y cobertura). */
+export const workplaceAreas = pgTable("workplace_areas", {
+  id: id(),
+  workplaceId: text("workplace_id").notNull().references(() => workplaces.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  headcount: integer("headcount").notNull().default(0),
+}, (t) => [uniqueIndex("workplace_areas_name_idx").on(t.workplaceId, t.name)]);
+
 /** Seguimiento de casos de Guía I que requieren valoración clínica (uno por respuesta). */
 export const atsStatusEnum = pgEnum("ats_status", ["IDENTIFICADO", "CANALIZADO", "EN_ATENCION", "ATENDIDO", "NO_LOCALIZABLE"]);
 export const atsFollowups = pgTable("ats_followups", {
