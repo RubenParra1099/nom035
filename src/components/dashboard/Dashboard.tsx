@@ -162,7 +162,7 @@ function DashboardInner({ evaluation: ev, records, previous, intervention, areaH
           {sheet && sheet <= g.items && (() => {
             const ranked = topItems(g, fRecs, itemMap);
             const pe = previous.find((p) => p.id === compareId);
-            return <ItemSheet guide={ev.guide} item={sheet} recs={fRecs} scores={fScores} dimensions={dimensions} minGroup={minGroup}
+            return <ItemSheet guide={ev.guide} evaluationId={ev.id} item={sheet} recs={fRecs} scores={fScores} dimensions={dimensions} minGroup={minGroup}
               canSeeIndividual={canSeeConfidential} population={population}
               prevRecs={pe?.records.filter((r) => match(r))} prevName={pe?.name}
               rank={{ pos: ranked.findIndex((r) => r.n === sheet) + 1 || ranked.length, of: ranked.length }}

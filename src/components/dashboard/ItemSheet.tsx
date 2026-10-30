@@ -26,9 +26,9 @@ function stats(g: GuideT, n: number, recs: Rec[]) {
 }
 
 export default function ItemSheet({
-  guide, item, recs, scores, prevRecs, prevName, dimensions, minGroup, canSeeIndividual, population, rank, context, onClose, onFilter,
+  guide, evaluationId, item, recs, scores, prevRecs, prevName, dimensions, minGroup, canSeeIndividual, population, rank, context, onClose, onFilter,
 }: {
-  guide: GuideId; item: number; recs: Rec[]; scores: ScoreResult[]; prevRecs?: Rec[]; prevName?: string;
+  guide: GuideId; evaluationId: string; item: number; recs: Rec[]; scores: ScoreResult[]; prevRecs?: Rec[]; prevName?: string;
   dimensions: { key: string; label: string }[]; minGroup: number; canSeeIndividual: boolean; population: number | null;
   rank: { pos: number; of: number }; context: { title: string; filters: string }; onClose: () => void; onFilter: (key: string, value: string) => void;
 }) {
@@ -184,7 +184,7 @@ export default function ItemSheet({
             </table>
           </Section>
 
-          <Section title="Respuestas individuales" subtitle="Anónimas: la plataforma no guarda nombres. El folio identifica la encuesta, no a la persona"
+          <Section title="Respuestas individuales" subtitle="Haz clic en un folio para abrir la ficha completa de esa encuesta. Solo aparece un nombre si el trabajador lo dejó voluntariamente para recibir atención (Guía I)"
             className={canSeeIndividual && printIndividual ? "" : "print:hidden"}>
             {canSeeIndividual ? (
               <>
@@ -204,7 +204,7 @@ export default function ItemSheet({
                     <tbody className="divide-y divide-gray-100">
                       {people.map(({ r, sc, v, p }, i) => (
                         <tr key={r.f ?? i}>
-                          <td className="td font-mono text-xs text-gray-500">{r.f ?? "—"}</td>
+                          <td className="td font-mono text-xs">{r.f ? <a href={`/admin/evaluaciones/${evaluationId}/confidencial/${r.f}`} target="_blank" rel="noopener" className="whitespace-nowrap font-semibold text-brand-700 hover:underline" title="Abrir la ficha de esta encuesta en otra pestaña">{r.f} ↗</a> : "—"}</td>
                           <td className="td"><div>{r.d.departamento}</div><div className="text-[11px] text-gray-500">{r.d.puesto}</div></td>
                           <td className="td text-gray-700">{r.d.sexo}</td>
                           <td className="td text-xs text-gray-600">{r.d.tiempoPuesto}</td>

@@ -33,13 +33,19 @@ export default async function WorkerSheet({ params }: { params: Promise<{ id: st
   const { id, rid } = await params;
   const s = await requireUser(["SUPERADMIN", "CONSULTOR"]);
   const ev = await db.query.evaluations.findFirst({ where: eq(schema.evaluations.id, id), with: { workplace: { with: { company: true } } } });
-  const r = await db.query.responses.findFirst({ where: and(eq(schema.responses.id, rid), eq(schema.responses.evaluationId, id)) });
+  // Se puede abrir por id de la respuesta o por su folio anónimo (desde la ficha técnica del reactivo)
+  let r = await db.query.responses.findFirst({ where: and(eq(schema.responses.id, rid), eq(schema.responses.evaluationId, id)) });
+  if (!r && /^[0-9A-F]{6}$/i.test(rid)) {
+    const ids = await db.select({ id: schema.responses.id }).from(schema.responses).where(eq(schema.responses.evaluationId, id));
+    const hit = ids.find((x) => folioOf(x.id) === rid.toUpperCase());
+    if (hit) r = await db.query.responses.findFirst({ where: eq(schema.responses.id, hit.id) });
+  }
   if (!ev || !r) notFound();
   const [contact, follow] = await Promise.all([
-    db.query.confidentialContacts.findFirst({ where: eq(schema.confidentialContacts.responseId, rid) }),
-    db.query.atsFollowups.findFirst({ where: eq(schema.atsFollowups.responseId, rid) }),
+    db.query.confidentialContacts.findFirst({ where: eq(schema.confidentialContacts.responseId, r.id) }),
+    db.query.atsFollowups.findFirst({ where: eq(schema.atsFollowups.responseId, r.id) }),
   ]);
-  await audit(s, "view-worker-sheet", "response", rid);
+  await audit(s, "view-worker-sheet", "response", r.id);
 
   const g = GUIDES[ev.guide];
   const items = r.items as Record<string, number | null>;
