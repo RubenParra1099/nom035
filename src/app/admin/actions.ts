@@ -47,6 +47,17 @@ export async function createWorkplace(form: FormData) {
   revalidatePath(`/admin/empresas/${d.companyId}`);
 }
 
+/** Elimina un centro de trabajo con sus evaluaciones, respuestas, plantilla por área, quejas, capacitaciones y seguimientos. */
+export async function deleteWorkplace(form: FormData) {
+  const s = await requireUser(["SUPERADMIN"]);
+  const id = String(form.get("id"));
+  const [w] = await db.delete(schema.workplaces).where(eq(schema.workplaces.id, id)).returning();
+  if (!w) return;
+  await audit(s, "delete", "workplace", id);
+  revalidatePath(`/admin/empresas/${w.companyId}`);
+  revalidatePath("/admin");
+}
+
 export async function updateWorkplaceHeadcount(form: FormData) {
   await requireUser(["SUPERADMIN", "CONSULTOR"]);
   const id = String(form.get("id"));

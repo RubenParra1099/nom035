@@ -5,7 +5,7 @@ import { db, schema } from "@/db";
 import { canEdit, canSeeCompany, requireUser } from "@/lib/auth";
 import { requiredGuide, sampleSize } from "@/lib/nom035/score";
 import ConfirmButton from "@/components/ConfirmButton";
-import { createEvaluation, createWorkplace, deleteCompany, updateCompany, updateWorkplaceHeadcount } from "../../actions";
+import { createEvaluation, createWorkplace, deleteCompany, deleteWorkplace, updateCompany, updateWorkplaceHeadcount } from "../../actions";
 import { SECTORS } from "@/lib/sectors";
 
 const GUIDE_LABEL = { GUIA_II: "Guía II · 46", GUIA_III: "Guía III · 72" };
@@ -110,6 +110,19 @@ export default async function CompanyPage({ params }: { params: Promise<{ id: st
                 </form>
               </details>
             )}
+
+            {s.role === "SUPERADMIN" && (() => {
+              const nResp = w.evaluations.reduce((t, e) => t + countOf(e.id), 0);
+              return (
+                <form action={deleteWorkplace} className="mt-4 flex justify-end border-t border-gray-100 pt-3">
+                  <input type="hidden" name="id" value={w.id} />
+                  <ConfirmButton className="text-sm font-medium text-red-700 hover:underline"
+                    message={`¿Eliminar el centro "${w.name}"? Se borrarán también ${w.evaluations.length ? `${w.evaluations.length} ${w.evaluations.length === 1 ? "evaluación" : "evaluaciones"} con ${nResp} respuestas, ` : ""}su plantilla por área, quejas, capacitaciones y seguimientos de Guía I. No se puede deshacer.`}>
+                    Eliminar centro de trabajo
+                  </ConfirmButton>
+                </form>
+              );
+            })()}
           </section>
         );
       })}
