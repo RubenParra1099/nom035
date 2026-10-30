@@ -5,11 +5,11 @@ import { db, schema } from "@/db";
 import { canEdit, canSeeCompany, requireUser } from "@/lib/auth";
 import { requiredGuide, sampleSize } from "@/lib/nom035/score";
 import ConfirmButton from "@/components/ConfirmButton";
+import EvalCard from "@/components/EvalCard";
+import { GUIDES, levelFor } from "@/lib/nom035/guides";
 import { createEvaluation, createWorkplace, deleteCompany, deleteWorkplace, updateCompany, updateWorkplace } from "../../actions";
 import { SECTORS } from "@/lib/sectors";
 
-const GUIDE_LABEL = { GUIA_II: "Guía II · 46", GUIA_III: "Guía III · 72" };
-const STATUS_LABEL = { BORRADOR: "Borrador", ABIERTA: "Abierta", CERRADA: "Cerrada" };
 
 export default async function CompanyPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -22,10 +22,12 @@ export default async function CompanyPage({ params }: { params: Promise<{ id: st
   if (!company) notFound();
   const evalIds = company.workplaces.flatMap((w) => w.evaluations.map((e) => e.id));
   const counts = evalIds.length
-    ? await db.select({ id: schema.responses.evaluationId, n: sql<number>`count(*)::int` }).from(schema.responses)
+    ? await db.select({ id: schema.responses.evaluationId, n: sql<number>`count(*)::int`, mean: sql<number>`avg(${schema.responses.finalScore})::float`,
+        ats: sql<number>`count(*) filter (where ${schema.responses.atsRequires})::int` }).from(schema.responses)
         .where(inArray(schema.responses.evaluationId, evalIds)).groupBy(schema.responses.evaluationId)
     : [];
   const countOf = (eid: string) => counts.find((c) => c.id === eid)?.n ?? 0;
+  const statOf = (eid: string) => counts.find((c) => c.id === eid);
   const edit = canEdit(s);
 
   return (
@@ -48,6 +50,23 @@ export default async function CompanyPage({ params }: { params: Promise<{ id: st
           </details>
         )}
       </div>
+
+      <details className="card p-4" open={company.workplaces.every((w) => w.evaluations.length === 0)}>
+        <summary className="cursor-pointer text-sm font-semibold text-ink">Cómo trabajar con esta empresa</summary>
+        <ol className="mt-3 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            ["Registra el centro de trabajo", "Con su número de trabajadores: define la guía que aplica y la muestra mínima."],
+            ["Crea la evaluación", "Comparte el enlace o el código QR, o importa las respuestas desde Excel."],
+            ["Analiza los resultados", "Tablero e indicadores, informe PDF y seguimiento de los casos de Guía I."],
+            ["Interviene y da seguimiento", "Programa de intervención, quejas y capacitación; vuelve a evaluar para medir el avance."],
+          ].map(([t, d], i) => (
+            <li key={t} className="flex gap-2.5 rounded-lg bg-surface-2 p-3">
+              <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-brand-600 text-xs font-bold text-white">{i + 1}</span>
+              <span><span className="block font-medium text-ink">{t}</span><span className="block text-xs text-gray-500">{d}</span></span>
+            </li>
+          ))}
+        </ol>
+      </details>
 
       {company.workplaces.map((w) => {
         const g = requiredGuide(w.headcount);
@@ -79,23 +98,21 @@ export default async function CompanyPage({ params }: { params: Promise<{ id: st
               </details>
             )}
 
-            <div className="mt-4 overflow-x-auto">
-              <table className="w-full">
-                <thead className="border-b border-gray-100"><tr>
-                  <th className="th">Evaluación</th><th className="th">Guía</th><th className="th">Estado</th><th className="th">Respuestas</th>
-                </tr></thead>
-                <tbody className="divide-y divide-gray-100">
-                  {w.evaluations.map((e) => (
-                    <tr key={e.id}>
-                      <td className="td"><Link className="font-medium text-brand-700 hover:underline" href={`/admin/evaluaciones/${e.id}`}>{e.name}</Link></td>
-                      <td className="td">{GUIDE_LABEL[e.guide]}</td>
-                      <td className="td">{STATUS_LABEL[e.status]}</td>
-                      <td className="td">{countOf(e.id)}</td>
-                    </tr>
-                  ))}
-                  {w.evaluations.length === 0 && <tr><td colSpan={4} className="td text-gray-500">Sin evaluaciones.</td></tr>}
-                </tbody>
-              </table>
+            <div className="mt-4 space-y-3">
+              {[...w.evaluations].sort((a, b) => +b.createdAt - +a.createdAt).map((e) => {
+                const st = statOf(e.id);
+                const enough = (st?.n ?? 0) >= 5;
+                return <EvalCard key={e.id} canSeeConfidential={s.role !== "CLIENTE"} ev={{
+                  id: e.id, name: e.name, guide: e.guide, includeGuideI: e.includeGuideI, status: e.status, createdAt: e.createdAt, workplaceId: w.id,
+                  responses: st?.n ?? 0, target: w.headcount > 50 ? sampleSize(w.headcount) : w.headcount || null,
+                  mean: enough ? st!.mean : null, level: enough ? levelFor(st!.mean, GUIDES[e.guide].finalCuts) : null, atsCases: st?.ats ?? 0,
+                }} />;
+              })}
+              {w.evaluations.length === 0 && (
+                <div className="rounded-xl border border-dashed border-gray-300 p-5 text-sm text-gray-600">
+                  <b>Este centro aún no tiene evaluaciones.</b> Crea una con <b>+ Nueva evaluación</b>: obtendrás el enlace y el código QR para que los trabajadores respondan, o podrás importar sus respuestas desde Excel.
+                </div>
+              )}
             </div>
 
             {edit && (
