@@ -95,9 +95,9 @@ export default async function EvaluationPage({ params }: { params: Promise<{ id:
 
         {edit && (
           <section className="card space-y-3 p-5">
-            <h2 className="font-semibold">Importar respuestas de Google Forms</h2>
-            <p className="text-sm text-gray-600">Sube el Excel o CSV exportado de Google Forms (como “NOM-035 MADRE 72/46”). Se detectan los reactivos por su número, se valida la guía y se recalcula todo con las reglas oficiales.</p>
-            <Importer evaluationId={id} guide={ev.guide} existing={stats.imported} />
+            <h2 className="font-semibold">Subir respuestas desde Excel</h2>
+            <p className="text-sm text-gray-600">Acepta la plantilla de captura o el Excel/CSV exportado de Google Forms (como “NOM-035 MADRE 72/46”). Se detectan los reactivos por su número, se valida la guía y se recalcula todo con las reglas oficiales.</p>
+            <Importer evaluationId={id} guide={ev.guide} existing={stats.imported} name={ev.name} departments={ev.departments} positions={ev.positions} includeGuideI={ev.includeGuideI} />
             {stats.imported > 0 && (
               <form action={deleteImportedResponses}>
                 <input type="hidden" name="id" value={id} />

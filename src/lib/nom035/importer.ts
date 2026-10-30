@@ -67,6 +67,8 @@ export function detectGuide(header: unknown[]): { guide: GuideId; itemCols: Reco
   const g3Only = [1, 4, 11, 20, 22, 26, 29, 30, 33, 37, 39, 40, 43, 44, 47, 53, 68, 71];
   const hasG3 = g3Only.filter((n) => nums.includes(n)).length >= 5;
   const maxN = Math.max(0, ...nums);
+  // Numeración propia de Guía II (p. ej. la plantilla de captura): nunca pasa del 46
+  if (maxN > 0 && maxN <= 46) return { guide: "GUIA_II", itemCols: cols, numbering: "G2" };
   if (hasG3) return { guide: "GUIA_III", itemCols: cols, numbering: "G3" };
   if (maxN > 46) {
     // Formulario de Guía II numerado con los reactivos de la Guía III (caso MADRE 46)
@@ -83,6 +85,7 @@ export function normalizeSheet(rows: unknown[][]) {
   const find = (re: RegExp) => header.findIndex((h) => re.test(h));
   const demoCols = DEMOGRAPHIC_FIELDS.map((f) => ({ ...f, col: header.findIndex((h) => f.match.test(h) && !/\[/.test(h)) }));
   const eduCols = EDUCATION_LEVELS.map((lvl) => ({ lvl, col: header.findIndex((h) => h.includes(`Nivel de Estudios [${lvl}]`)) }));
+  const eduSingle = header.findIndex((h) => /^nivel de estudios$/i.test(h));
   const physCols = PHYSICAL_FIELDS.map((p) => ({ p, col: header.findIndex((h) => /factores f[ií]sicos/i.test(h) && h.includes(p)) }));
   const tsCol = find(/marca temporal|timestamp/i);
   const clientsCol = find(/brindar servicio a clientes/i);
@@ -104,6 +107,7 @@ export function normalizeSheet(rows: unknown[][]) {
       const v = cell(col);
       if (v) estudios = v.toLowerCase().startsWith("incomp") ? `${lvl} (incompleta)` : lvl;
     }
+    if (!estudios && eduSingle >= 0) estudios = cell(eduSingle);
     const contact = cell(contactCol);
     responses.push({
       submittedAt: parseDate(tsCol >= 0 ? r[tsCol] : null),

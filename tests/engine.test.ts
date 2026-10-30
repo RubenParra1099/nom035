@@ -81,3 +81,45 @@ describe.skipIf(!dir)("datos reales", () => {
     expect(responses.map((r) => evaluateG1(r.g1)).filter((x) => x.requiresEvaluation).length).toBe(6);
   });
 });
+
+import { buildTemplate } from "@/lib/nom035/template";
+describe("plantilla de captura", () => {
+  for (const guide of ["GUIA_II", "GUIA_III"] as const) {
+    it(`${guide}: la plantilla llenada se importa y califica`, () => {
+      const g = guide === "GUIA_II" ? GUIA_II : GUIA_III;
+      const { header } = buildTemplate(guide, { departments: ["Operación"], positions: ["Operativo"], includeGuideI: true });
+      const row = header.map((h) => {
+        if (/^\[\d+\.-/.test(h)) return "Casi siempre";
+        if (/clientes o usuarios:|Soy jefe/.test(h)) return "No";
+        if (h.startsWith("Guía I [")) return h.includes("Asaltos") ? "Sí" : h.includes("dormir") || h.includes("irritable") ? "Sí" : "No";
+        if (h === "Sexo") return "Mujer";
+        if (h === "Nivel de estudios") return "Licenciatura";
+        if (h.startsWith("Departamento")) return "Operación";
+        if (h.startsWith("Factores Físicos")) return "Bien";
+        if (h.includes("ESCRIBIR SU NOMBRE")) return "Ana";
+        return null;
+      });
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([header, row]), "Captura");
+      const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+      const rows = XLSX.utils.sheet_to_json<unknown[]>(XLSX.read(buf).Sheets["Captura"], { header: 1, raw: true, defval: null });
+      const r = normalizeSheet(rows);
+      expect(r.guide).toBe(guide);
+      expect(r.columnsFound).toBe(g.items);
+      const x = r.responses[0];
+      expect(x.demographics.sexo).toBe("Mujer");
+      expect(x.demographics.estudios).toBe("Licenciatura");
+      expect(x.demographics.departamento).toBe("Operación");
+      expect(x.physical.Ruido).toBe("Bien");
+      expect(x.contactName).toBe("Ana");
+      expect(x.servesClients).toBe(false);
+      expect(evaluateG1(x.g1)).toEqual({ event: true, requiresEvaluation: true });
+      // "Casi siempre": directo = 3, inverso = 1; sin reactivos de clientes/jefe
+      const masked = maskConditional(guide, x.items, x.servesClients, x.isBoss);
+      const skip = new Set([...g.clientItems, ...g.bossItems]);
+      let expected = 0;
+      for (let n = 1; n <= g.items; n++) if (!skip.has(n)) expected += g.inverse.has(n) ? 1 : 3;
+      expect(scoreWorker(guide, masked).final).toBe(expected);
+    });
+  }
+});

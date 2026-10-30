@@ -2,11 +2,38 @@
 import { useState } from "react";
 import * as XLSX from "xlsx";
 import { normalizeSheet, type NormalizedResponse } from "@/lib/nom035/importer";
+import { buildTemplate } from "@/lib/nom035/template";
+import type { GuideId } from "@/lib/nom035/guides";
 import { importResponses } from "./import-actions";
 
 type Parsed = { guide: string; responses: NormalizedResponse[]; columnsFound: number; sheet: string };
 
-export default function Importer({ evaluationId, guide, existing = 0 }: { evaluationId: string; guide: string; existing?: number }) {
+type Props = {
+  evaluationId: string; guide: GuideId; existing?: number; name: string;
+  departments: string[]; positions: string[]; includeGuideI: boolean;
+};
+
+export default function Importer({ evaluationId, guide, existing = 0, name, departments, positions, includeGuideI }: Props) {
+  function downloadTemplate() {
+    const { header, instructions } = buildTemplate(guide, { departments, positions, includeGuideI });
+    const wb = XLSX.utils.book_new();
+    const cap = XLSX.utils.aoa_to_sheet([header]);
+    cap["!cols"] = header.map((h) => ({ wch: /^\[\d+\.-/.test(h) ? 16 : 22 }));
+    cap["!freeze"] = { xSplit: 0, ySplit: 1 };
+    XLSX.utils.book_append_sheet(wb, cap, "Captura");
+    const ins = XLSX.utils.aoa_to_sheet(instructions);
+    ins["!cols"] = [{ wch: 70 }, { wch: 90 }];
+    XLSX.utils.book_append_sheet(wb, ins, "Instrucciones");
+    const safe = name.replace(/[^\p{L}\p{N} _-]/gu, "").trim().replace(/\s+/g, "_") || "evaluacion";
+    const data = XLSX.write(wb, { type: "array", bookType: "xlsx" });
+    const url = URL.createObjectURL(new Blob([data], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `Plantilla_NOM035_${guide === "GUIA_III" ? "GuiaIII" : "GuiaII"}_${safe}.xlsx`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
   const [parsed, setParsed] = useState<Parsed | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -48,6 +75,10 @@ export default function Importer({ evaluationId, guide, existing = 0 }: { evalua
   const mismatch = parsed && parsed.guide !== guide;
   return (
     <div className="space-y-3">
+      <div className="rounded-lg border border-dashed border-gray-300 p-3 text-sm">
+        <p className="text-gray-700">¿Captura en papel o sin Google Forms? Descarga la plantilla, llena un renglón por trabajador y súbela aquí.</p>
+        <button type="button" className="btn-secondary mt-2" onClick={downloadTemplate}>Descargar plantilla de Excel</button>
+      </div>
       <input type="file" accept=".xlsx,.xls,.csv" className="block w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-brand-50 file:px-3 file:py-2 file:text-brand-700"
         onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])} />
       {parsed && (
