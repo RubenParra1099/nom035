@@ -86,6 +86,8 @@ export default async function ProgramPage({ params }: { params: Promise<{ id: st
         </form>
       )}
 
+      {actions.length > 0 && <Gantt actions={actions} today={today} />}
+
       <section className="card overflow-x-auto">
         <table className="w-full min-w-[820px]">
           <thead className="border-b border-gray-100"><tr><th className="th">Dominio</th><th className="th">Acción</th><th className="th">Área / responsable</th><th className="th">Compromiso</th><th className="th">Conclusión</th><th className="th"></th></tr></thead>
@@ -97,7 +99,7 @@ export default async function ProgramPage({ params }: { params: Promise<{ id: st
                   <td className="td text-xs text-gray-600">{a.domain}</td>
                   <td className="td">{a.action}</td>
                   <td className="td text-sm">{a.area ?? "Todo el centro"}<div className="text-xs text-gray-400">{a.owner ?? "Sin responsable"}</div></td>
-                  <td className={`td tabular-nums ${late ? "font-semibold text-red-600" : ""}`}>{a.dueDate}{late && <div className="text-[11px]">Vencida</div>}</td>
+                  <td className={`td whitespace-nowrap tabular-nums ${late ? "font-semibold text-red-600" : ""}`}>{a.dueDate}{late && <div className="text-[11px]">Vencida</div>}</td>
                   <td className="td">
                     {edit ? (
                       <form action={setActionDone} className="flex items-center gap-2">
@@ -117,5 +119,55 @@ export default async function ProgramPage({ params }: { params: Promise<{ id: st
         </table>
       </section>
     </div>
+  );
+}
+
+/* Cronograma (Gantt) del programa: de la fecha de alta a la fecha compromiso, con la conclusión marcada */
+function Gantt({ actions, today }: { actions: { id: string; action: string; domain: string; owner: string | null; dueDate: string; doneAt: string | null; createdAt: Date }[]; today: string }) {
+  const day = (d: string) => Date.parse(d) / 86400000;
+  const rows = actions.map((a) => ({ ...a, start: a.createdAt.toISOString().slice(0, 10) }));
+  const min = Math.min(...rows.map((r) => day(r.start)), day(today)) - 3;
+  const max = Math.max(...rows.map((r) => Math.max(day(r.dueDate), r.doneAt ? day(r.doneAt) : 0)), day(today)) + 7;
+  const pos = (d: string) => `${((day(d) - min) / (max - min)) * 100}%`;
+  const months: { label: string; at: string }[] = [];
+  const c = new Date(min * 86400000); c.setUTCDate(1); c.setUTCMonth(c.getUTCMonth() + 1);
+  while (c.getTime() / 86400000 < max) { months.push({ label: c.toLocaleDateString("es-MX", { month: "short", year: "2-digit", timeZone: "UTC" }), at: c.toISOString().slice(0, 10) }); c.setUTCMonth(c.getUTCMonth() + 1); }
+  const status = (r: (typeof rows)[number]) => r.doneAt ? (r.doneAt <= r.dueDate ? { c: "var(--risk-0)", t: "Concluida a tiempo" } : { c: "var(--lv-medio)", t: "Concluida con retraso" })
+    : r.dueDate < today ? { c: "var(--lv-muyalto)", t: "Vencida" } : { c: "var(--brand)", t: "En curso" };
+  return (
+    <section className="card p-5">
+      <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+        <div><h2 className="text-lg font-semibold">Cronograma</h2><p className="text-sm text-gray-500">Cada barra va de la fecha de alta a la fecha compromiso; el rombo marca la conclusión.</p></div>
+        <div className="flex flex-wrap gap-3 text-xs text-gray-600">
+          {[["var(--brand)", "En curso"], ["var(--risk-0)", "A tiempo"], ["var(--lv-medio)", "Con retraso"], ["var(--lv-muyalto)", "Vencida"]].map(([col, l]) =>
+            <span key={l} className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: col }} />{l}</span>)}
+        </div>
+      </div>
+      <div className="overflow-x-auto">
+        <div className="min-w-[760px]">
+          <div className="grid grid-cols-[minmax(0,18rem)_1fr] gap-3">
+            <div />
+            <div className="relative h-5 text-[11px] text-gray-500">
+              {months.map((m) => <span key={m.at} className="absolute -translate-x-1/2 whitespace-nowrap" style={{ left: pos(m.at) }}>{m.label}</span>)}
+            </div>
+          </div>
+          {rows.map((r) => {
+            const st = status(r);
+            return (
+              <div key={r.id} className="grid grid-cols-[minmax(0,18rem)_1fr] items-center gap-3 border-t border-line py-1.5">
+                <div className="min-w-0 text-sm"><div className="truncate text-ink" title={r.action}>{r.action}</div><div className="truncate text-[11px] text-gray-500">{r.domain}{r.owner ? ` · ${r.owner}` : ""}</div></div>
+                <div className="relative h-6" title={`${st.t} · compromiso ${r.dueDate}${r.doneAt ? ` · concluida ${r.doneAt}` : ""}`}>
+                  {months.map((m) => <span key={m.at} className="absolute inset-y-0 w-px bg-gray-100" style={{ left: pos(m.at) }} />)}
+                  <span className="absolute inset-y-0 w-0.5 bg-gray-800" style={{ left: pos(today) }} />
+                  <span className="absolute top-1.5 h-3 rounded" style={{ left: pos(r.start), width: `max(4px, calc(${pos(r.dueDate)} - ${pos(r.start)}))`, background: st.c, opacity: r.doneAt ? 0.55 : 0.9 }} />
+                  {r.doneAt && <span className="absolute top-1 h-4 w-4 -translate-x-1/2 rotate-45 rounded-sm border-2" style={{ left: pos(r.doneAt), background: st.c, borderColor: "var(--surface)" }} />}
+                </div>
+              </div>
+            );
+          })}
+          <p className="mt-2 text-xs text-gray-500">Línea vertical oscura: hoy ({today}).</p>
+        </div>
+      </div>
+    </section>
   );
 }

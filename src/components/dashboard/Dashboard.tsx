@@ -3,6 +3,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { GUIDES, LEVELS, LEVEL_ACTION, LEVEL_LABEL, itemsOfDomain, type GuideId, type Level } from "@/lib/nom035/guides";
 import { aggregate, sampleSize, scoreWorker, type ScoreResult } from "@/lib/nom035/score";
 import { INTERVENTIONS, GUIA_I_ACTION } from "@/lib/nom035/interventions";
+import { AtsFunnel, CorrelationMatrix, DemandControl, FinalHistogram, ItemPareto, Sparkline, Waterfall } from "./advanced";
 import { computeKpis, DIM_NAMES, type InterventionData, type Kpi, type Light } from "@/lib/nom035/kpis";
 import {
   BulletBar, FreqBars, Gauge, HeatCell, LEVEL_HEX, LEVEL_TEXT, LevelDonut, LevelStack, Radar, RiskDiverging, RiskLegend,
@@ -26,6 +27,7 @@ type Filters = Record<string, string[]>;
 const TABS = [
   { id: "resumen", label: "Resumen ejecutivo" },
   { id: "kpis", label: "KPIs y KRIs" },
+  { id: "analisis", label: "Análisis avanzado" },
   { id: "dominios", label: "Categorías y dominios" },
   { id: "grupos", label: "Comparativo por grupos" },
   { id: "reactivos", label: "Reactivos" },
@@ -127,11 +129,19 @@ function DashboardInner({ evaluation: ev, records, previous, intervention, dimen
         <>
           {tab === "resumen" && <Resumen {...{ ev, g, agg, n, prev, fRecs, fScores, maxDomain, maxCat, itemMap, setTab, filtered, records }} />}
           {tab === "kpis" && <Kpis kpis={computeKpis({ guide: ev.guide, records: fRecs, minGroup, headcount: ev.headcount, intervention,
-            prevRecords: previous.find((p) => p.id === compareId)?.records.filter((r) => match(r)) })} filtered={filtered} hasPrev={!!compareId} />}
+            prevRecords: previous.find((p) => p.id === compareId)?.records.filter((r) => match(r)) })} filtered={filtered} hasPrev={!!compareId}
+            history={(() => {
+              // Serie histórica de los KPIs de encuesta: periodos anteriores (del más antiguo al más reciente) + actual, con los mismos filtros
+              const periods = [...previous].reverse().map((p) => ({ label: p.name, recs: p.records.filter((r) => match(r)) })).filter((p) => p.recs.length >= minGroup);
+              if (!periods.length) return undefined;
+              const series = [...periods, { label: ev.name, recs: fRecs }].map((p) => computeKpis({ guide: ev.guide, records: p.recs, minGroup, headcount: ev.headcount }));
+              return { labels: [...periods.map((p) => p.label), ev.name], byId: Object.fromEntries(series[series.length - 1].map((k) => [k.id, series.map((ks) => ks.find((x) => x.id === k.id)?.value ?? null)])) };
+            })()} />}
+          {tab === "analisis" && <Analisis {...{ g, agg, prev, fRecs, fScores, dimensions, minGroup }} />}
           {tab === "dominios" && <Dominios {...{ g, agg, n, prev, maxDomain, maxCat }} />}
           {tab === "grupos" && <Grupos {...{ ev, g, dimensions, fRecs, fScores, minGroup, setOnly, maxDomain }} />}
           {tab === "reactivos" && <Reactivos {...{ g, fRecs, itemMap }} />}
-          {tab === "guia1" && <GuiaI {...{ ev, fRecs, dimensions, minGroup, canSeeConfidential }} />}
+          {tab === "guia1" && <GuiaI {...{ ev, fRecs, dimensions, minGroup, canSeeConfidential, ats: intervention.ats }} />}
           {tab === "perfil" && <Perfil {...{ dimensions, fRecs, filters, toggle }} />}
           {tab === "plan" && <Plan {...{ ev, g, agg, n, fRecs, maxDomain }} />}
         </>
@@ -531,7 +541,7 @@ function Reactivos({ g, fRecs, itemMap }: { g: GuideT; fRecs: Rec[]; itemMap: Re
 }
 
 /* ================= Guía I y entorno físico ================= */
-function GuiaI({ ev, fRecs, dimensions, minGroup, canSeeConfidential }: { ev: Props["evaluation"]; fRecs: Rec[]; dimensions: { key: string; label: string }[]; minGroup: number; canSeeConfidential: boolean }) {
+function GuiaI({ ev, fRecs, dimensions, minGroup, canSeeConfidential, ats }: { ev: Props["evaluation"]; fRecs: Rec[]; dimensions: { key: string; label: string }[]; minGroup: number; canSeeConfidential: boolean; ats: InterventionData["ats"] }) {
   const n = fRecs.length;
   const ev1 = fRecs.filter((r) => r.g1 >= 1).length, req = fRecs.filter((r) => r.g1 === 2).length;
   const [dim, setDim] = useState("departamento");
@@ -574,6 +584,9 @@ function GuiaI({ ev, fRecs, dimensions, minGroup, canSeeConfidential }: { ev: Pr
                 <span key={l} className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: c }} />{l}</span>)}
             </div>
             <p className="mt-3 rounded-lg bg-red-50 p-3 text-xs text-red-800">{GUIA_I_ACTION}</p>
+          </Panel>
+          <Panel title="Seguimiento de casos" subtitle="Embudo de atención de todo el centro (no aplica filtros): dónde se detienen los casos">
+            <AtsFunnel ats={ats} />
           </Panel>
         </>
       )}
@@ -692,7 +705,8 @@ const LIGHT_STYLE: Record<Light, { bg: string; fg: string; label: string }> = {
   ROJO: { bg: "var(--lv-muyalto)", fg: "var(--lv-muyalto-ink)", label: "Acción inmediata" },
   SIN_DATOS: { bg: "var(--lv-none)", fg: "var(--lv-none-ink)", label: "Sin datos" },
 };
-function Kpis({ kpis, filtered, hasPrev }: { kpis: Kpi[]; filtered: boolean; hasPrev: boolean }) {
+const HIGHER_BETTER = new Set(["LR-03", "LR-06", "CC-04", "EO-01", "EI-02", "EI-03", "EI-04", "EI-05", "EI-06", "EI-08", "EI-09", "EI-10"]);
+function Kpis({ kpis, filtered, hasPrev, history }: { kpis: Kpi[]; filtered: boolean; hasPrev: boolean; history?: { labels: string[]; byId: Record<string, (number | null)[]> } }) {
   const [open, setOpen] = useState<string | null>(null);
   const counts = (["ROJO", "AMARILLO", "VERDE", "SIN_DATOS"] as Light[]).map((l) => [l, kpis.filter((k) => k.light === l).length] as const);
   return (
@@ -727,7 +741,10 @@ function Kpis({ kpis, filtered, hasPrev }: { kpis: Kpi[]; filtered: boolean; has
                       </div>
                       <span className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: st.bg, color: st.fg }}>{st.label}</span>
                     </div>
-                    <div className="mt-2 text-3xl font-bold tabular-nums text-gray-900">{k.display}</div>
+                    <div className="mt-2 flex items-end justify-between gap-2">
+                      <div className="text-3xl font-bold tabular-nums text-gray-900">{k.display}</div>
+                      {history && k.scope === "encuesta" && history.byId[k.id] && <Sparkline values={history.byId[k.id]} labels={history.labels} invert={HIGHER_BETTER.has(k.id)} />}
+                    </div>
                     <p className="mt-1 text-xs text-gray-600">{k.detail}</p>
                     <button className="mt-auto pt-3 text-left text-xs font-medium text-brand-700 hover:underline print:hidden" onClick={() => setOpen(isOpen ? null : k.id)}>
                       {isOpen ? "Ocultar ficha técnica" : "Ver ficha técnica"}
@@ -747,6 +764,55 @@ function Kpis({ kpis, filtered, hasPrev }: { kpis: Kpi[]; filtered: boolean; has
           </div>
         </section>
       ))}
+    </div>
+  );
+}
+
+/* ================= Análisis avanzado ================= */
+function Analisis({ g, agg, prev, fRecs, fScores, dimensions, minGroup }: {
+  g: GuideT; agg: AggT; prev?: Prev; fRecs: Rec[]; fScores: ScoreResult[]; dimensions: { key: string; label: string }[]; minGroup: number;
+}) {
+  const usable = dimensions.filter(({ key }) => new Set(fRecs.map((r) => r.d[key])).size > 1);
+  const [dim, setDim] = useState(usable.find((u) => u.key === "departamento")?.key ?? usable[0]?.key ?? "departamento");
+  const groups = useMemo(() => {
+    const m: Record<string, ScoreResult[]> = {};
+    fRecs.forEach((r, i) => { if (r.d[dim] !== "Sin dato") (m[r.d[dim]] ??= []).push(fScores[i]); });
+    return Object.entries(m).map(([name, scores]) => ({ name, scores }));
+  }, [fRecs, fScores, dim]);
+  const items = useMemo(() => Array.from({ length: g.items }, (_, i) => {
+    const n = i + 1;
+    let pts = 0;
+    for (const r of fRecs) { const v = r.it[i]; if (v !== null && v !== undefined) pts += g.inverse.has(n) ? v : 4 - v; }
+    return { n, text: g.text(n), points: pts };
+  }), [fRecs, g]);
+  const label = dimensions.find((d) => d.key === dim)?.label ?? "Grupo";
+  return (
+    <div className="space-y-4">
+      {prev ? (
+        <Panel title={`¿Qué cambió entre “${prev.name}” y este periodo?`} subtitle="Cascada de la calificación final: cuánto aportó cada dominio al cambio (mismos filtros en ambos periodos)">
+          <Waterfall prevName={prev.name} prevFinal={prev.final} nowFinal={agg.final.mean}
+            deltas={agg.domains.map((d) => ({ name: d.name, delta: d.mean - (prev.domains[d.name] ?? 0) }))} />
+        </Panel>
+      ) : (
+        <div className="card p-4 text-sm text-gray-600">Selecciona un periodo en <b>Comparar con</b> para ver la cascada de cambios entre evaluaciones.</div>
+      )}
+      <div className="grid gap-4 xl:grid-cols-2">
+        <Panel title="Mapa demanda–control" subtitle="Modelo de Karasek: grupos con mucha carga y poco control están en alta tensión. Tamaño = respuestas; color = nivel de la calificación final"
+          right={usable.length > 0 && <select className="input w-48" value={dim} onChange={(e) => setDim(e.target.value)}>{usable.map((u) => <option key={u.key} value={u.key}>{u.label}</option>)}</select>}>
+          <DemandControl g={g} groups={groups} minGroup={minGroup} />
+          <p className="mt-1 text-xs text-gray-500">Líneas punteadas: inicio del nivel alto según la norma en Carga de trabajo y en Falta de control. Agrupado por {label.toLowerCase()}; grupos con menos de {minGroup} respuestas se omiten.</p>
+        </Panel>
+        <Panel title="Distribución de calificaciones individuales" subtitle="Cuántos trabajadores hay en cada rango de puntos; el fondo marca los niveles de la norma">
+          <FinalHistogram g={g} finals={fScores.map((s) => s.final)} mean={agg.final.mean} prevMean={prev?.final} />
+          <p className="mt-1 text-xs text-gray-500">Un promedio medio puede esconder dos grupos: muchos en nivel bajo y un grupo en muy alto. Esta gráfica lo muestra.</p>
+        </Panel>
+      </div>
+      <Panel title="Pareto de reactivos" subtitle="Qué reactivos concentran el riesgo; en rojo, los que suman el 80% de los puntos">
+        <ItemPareto items={items} />
+      </Panel>
+      <Panel title="Relación entre dominios" subtitle="Correlación entre las calificaciones individuales (r de −1 a 1). Rojo: suben juntos; verde azulado: uno sube cuando el otro baja">
+        <CorrelationMatrix g={g} scores={fScores} />
+      </Panel>
     </div>
   );
 }
