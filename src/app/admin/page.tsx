@@ -1,65 +1,112 @@
-import Link from "next/link";
-import { desc, eq, sql } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { canEdit, requireUser } from "@/lib/auth";
+import { getAlerts } from "@/lib/alerts";
+import { GUIDES, levelFor } from "@/lib/nom035/guides";
+import { sampleSize } from "@/lib/nom035/score";
+import { Drawer, SaveButton } from "@/components/ui/forms";
 import { createCompany } from "./actions";
 import { SECTORS } from "@/lib/sectors";
+import Portfolio, { type PortfolioRow } from "./Portfolio";
 
+export const dynamic = "force-dynamic";
+
+/** Cartera: cada empresa con su último resultado, avance de captura, casos de Guía I y alertas. */
 export default async function CompaniesPage() {
   const s = await requireUser();
-  const { companies, workplaces, evaluations, responses } = schema;
-  const rows = await db
-    .select({
-      id: companies.id, name: companies.name, rfc: companies.rfc,
-      workplaces: sql<number>`count(distinct ${workplaces.id})::int`,
-      evaluations: sql<number>`count(distinct ${evaluations.id})::int`,
-      responses: sql<number>`count(${responses.id})::int`,
-    })
-    .from(companies)
-    .leftJoin(workplaces, eq(workplaces.companyId, companies.id))
-    .leftJoin(evaluations, eq(evaluations.workplaceId, workplaces.id))
-    .leftJoin(responses, eq(responses.evaluationId, evaluations.id))
-    .where(s.role === "CLIENTE" ? eq(companies.id, s.companyId ?? "") : undefined)
-    .groupBy(companies.id)
-    .orderBy(desc(companies.createdAt));
+  const companies = await db.query.companies.findMany({
+    where: s.role === "CLIENTE" ? eq(schema.companies.id, s.companyId ?? "") : undefined,
+    with: { workplaces: { with: { evaluations: true } } },
+  });
+  const evIds = companies.flatMap((c) => c.workplaces.flatMap((w) => w.evaluations.map((e) => e.id)));
+  const [stats, ats, alerts] = await Promise.all([
+    evIds.length ? db.select({
+      id: schema.responses.evaluationId, n: sql<number>`count(*)::int`, mean: sql<number>`avg(${schema.responses.finalScore})::float`,
+      hi: sql<number>`count(*) filter (where ${schema.responses.finalLevel} in ('ALTO','MUY_ALTO'))::int`,
+    }).from(schema.responses).where(inArray(schema.responses.evaluationId, evIds)).groupBy(schema.responses.evaluationId) : [],
+    evIds.length ? db.select({ id: schema.responses.evaluationId, n: sql<number>`count(*)::int` }).from(schema.atsFollowups)
+      .innerJoin(schema.responses, eq(schema.responses.id, schema.atsFollowups.responseId))
+      .where(sql`${schema.atsFollowups.status} = 'IDENTIFICADO' and ${inArray(schema.responses.evaluationId, evIds)}`).groupBy(schema.responses.evaluationId) : [],
+    getAlerts(s),
+  ]);
+  const st = (id: string) => stats.find((x) => x.id === id);
+
+  const rows: PortfolioRow[] = companies.map((c) => {
+    let n = 0, target = 0, hiN = 0, wsum = 0, wN = 0, atsPend = 0, openEvals = 0;
+    let latestDate = 0, latestName = "", worst: { level: number; label: string } | null = null;
+    for (const w of c.workplaces) {
+      const last = [...w.evaluations].sort((a, b) => +b.createdAt - +a.createdAt)[0];
+      openEvals += w.evaluations.filter((e) => e.status === "ABIERTA").length;
+      atsPend += w.evaluations.reduce((t, e) => t + (ats.find((x) => x.id === e.id)?.n ?? 0), 0);
+      if (!last) continue;
+      const x = st(last.id);
+      n += x?.n ?? 0;
+      target += w.headcount > 50 ? sampleSize(w.headcount) : w.headcount;
+      if (+last.createdAt > latestDate) { latestDate = +last.createdAt; latestName = last.name; }
+      if (x && x.n >= 5) {
+        hiN += x.hi; wsum += x.mean * x.n; wN += x.n;
+        const lv = levelFor(x.mean, GUIDES[last.guide].finalCuts);
+        const rank = ["NULO", "BAJO", "MEDIO", "ALTO", "MUY_ALTO"].indexOf(lv);
+        if (!worst || rank > worst.level) worst = { level: rank, label: lv };
+      }
+    }
+    const al = alerts.filter((a) => a.company === c.name);
+    return {
+      id: c.id, name: c.name, sector: c.sector, rfc: c.rfc, centros: c.workplaces.length,
+      trabajadores: c.workplaces.reduce((t, w) => t + w.headcount, 0),
+      evaluaciones: c.workplaces.reduce((t, w) => t + w.evaluations.length, 0), openEvals,
+      respuestas: n, avance: target ? Math.min(100, Math.round((n / target) * 100)) : null,
+      latest: latestName ? { name: latestName, date: new Date(latestDate).toISOString().slice(0, 10) } : null,
+      worstLevel: worst?.label ?? null, hiPct: wN ? (hiN / wN) * 100 : null, meanFinal: wN ? wsum / wN : null,
+      atsPend, alertsCrit: al.filter((a) => a.severity === "CRITICA").length, alertsTotal: al.length,
+    };
+  });
+
+  const tot = {
+    empresas: rows.length, centros: rows.reduce((t, r) => t + r.centros, 0),
+    respuestas: rows.reduce((t, r) => t + r.respuestas, 0), abiertas: rows.reduce((t, r) => t + r.openEvals, 0),
+    ats: rows.reduce((t, r) => t + r.atsPend, 0), criticas: alerts.filter((a) => a.severity === "CRITICA").length,
+  };
+  const tiles = [
+    ["Empresas", tot.empresas, `${tot.centros} centros de trabajo`, ""],
+    ["Respuestas", tot.respuestas.toLocaleString("es-MX"), "en la última evaluación de cada centro", ""],
+    ["Capturas abiertas", tot.abiertas, "evaluaciones recibiendo respuestas", ""],
+    ["Guía I sin canalizar", tot.ats, "casos que requieren valoración", tot.ats ? "text-red-600" : ""],
+    ["Alertas críticas", tot.criticas, "requieren atención hoy", tot.criticas ? "text-red-600" : ""],
+  ] as const;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-end justify-between gap-4">
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">Empresas</h1>
-          <p className="text-sm text-gray-500">Clientes, centros de trabajo y evaluaciones NOM-035.</p>
-        </div>
-      </div>
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="card overflow-x-auto lg:col-span-2">
-          <table className="w-full">
-            <thead className="border-b border-gray-100"><tr>
-              <th className="th">Empresa</th><th className="th">Centros</th><th className="th">Evaluaciones</th><th className="th">Respuestas</th>
-            </tr></thead>
-            <tbody className="divide-y divide-gray-100">
-              {rows.map((r) => (
-                <tr key={r.id} className="hover:bg-gray-50">
-                  <td className="td"><Link className="font-medium text-brand-700 hover:underline" href={`/admin/empresas/${r.id}`}>{r.name}</Link>
-                    {r.rfc && <div className="text-xs text-gray-500">{r.rfc}</div>}</td>
-                  <td className="td">{r.workplaces}</td><td className="td">{r.evaluations}</td><td className="td">{r.responses}</td>
-                </tr>
-              ))}
-              {rows.length === 0 && <tr><td className="td text-gray-500" colSpan={4}>Aún no hay empresas.</td></tr>}
-            </tbody>
-          </table>
+          <h1 className="text-2xl font-semibold text-ink">{s.role === "CLIENTE" ? "Mi empresa" : "Cartera de clientes"}</h1>
+          <p className="text-sm text-gray-500">Resultado más reciente, avance de la captura, casos de Guía I y alertas de cada empresa.</p>
         </div>
         {canEdit(s) && (
-          <form action={createCompany} className="card space-y-3 p-5">
-            <h2 className="font-semibold">Nueva empresa</h2>
-            <div><label className="label">Razón social / nombre</label><input name="name" className="input" required /></div>
-            <div><label className="label">RFC</label><input name="rfc" className="input" /></div>
-            <div><label className="label">Contacto</label><input name="contact" className="input" placeholder="Nombre, correo o teléfono" /></div>
-            <div><label className="label">Giro o sector</label><select name="sector" className="input" defaultValue=""><option value="">Sin especificar</option>{SECTORS.map((x) => <option key={x}>{x}</option>)}</select></div>
-            <button className="btn-primary w-full">Crear empresa</button>
-          </form>
+          <Drawer trigger="+ Nueva empresa" title="Nueva empresa" subtitle="Después agregue sus centros de trabajo.">
+            <form action={createCompany} className="space-y-4">
+              <div><label className="label">Razón social / nombre</label><input name="name" className="input" required minLength={2} /></div>
+              <div><label className="label">RFC</label><input name="rfc" className="input" /></div>
+              <div><label className="label">Contacto</label><input name="contact" className="input" placeholder="Nombre, correo o teléfono" /></div>
+              <div><label className="label">Giro o sector</label><select name="sector" className="input" defaultValue=""><option value="">Sin especificar</option>{SECTORS.map((x) => <option key={x}>{x}</option>)}</select>
+                <p className="mt-1 text-xs text-gray-500">Se usa para comparar contra empresas del mismo sector.</p></div>
+              <div className="flex justify-end border-t border-line pt-4"><SaveButton done="Empresa creada ✓">Crear empresa</SaveButton></div>
+            </form>
+          </Drawer>
         )}
       </div>
+
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+        {tiles.map(([l, v, d, tone]) => (
+          <div key={l} className="card p-4">
+            <div className="text-xs font-medium text-gray-500">{l}</div>
+            <div className={`mt-1 text-2xl font-semibold tabular-nums text-ink ${tone}`}>{v}</div>
+            <div className="text-[11px] text-gray-500">{d}</div>
+          </div>
+        ))}
+      </div>
+
+      <Portfolio rows={rows} />
     </div>
   );
 }

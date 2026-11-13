@@ -148,6 +148,9 @@ export default async function BenchmarkPage({ searchParams }: { searchParams: Pr
                 })}
               </tbody>
             </table>
+            <dl className="mt-3 grid gap-x-6 gap-y-1 text-xs text-gray-600 sm:grid-cols-2 lg:grid-cols-3">
+              {BENCH_KPIS.map((k) => { const m = pool.find((r) => r.kpis[k])?.kpis[k]; return m ? <div key={k} className="flex gap-1.5"><dt className="font-semibold text-ink">{m.short}</dt><dd>{k} · {m.name}</dd></div> : null; })}
+            </dl>
             <p className="mt-2 text-xs text-gray-500">n/a: la categoría Entorno organizacional solo existe en la Guía III.{anonymous && " Por confidencialidad, solo se muestran tus centros; el resto del portafolio aparece como referencia en la posición y el ranking."}</p>
           </section>
         </>
@@ -184,8 +187,8 @@ function Position({ focus, pool, metrics, name, sectorName, sectorPool }: { focu
       )}
       <div className="space-y-2">
         {rows.map((r) => (
-          <div key={r.m.key} className="grid grid-cols-[minmax(0,17rem)_1fr_10rem] items-center gap-3 text-sm">
-            <span className="truncate text-gray-700" title={r.m.label}>{r.m.label}</span>
+          <div key={r.m.key} className="grid grid-cols-[minmax(0,22rem)_1fr_10rem] items-center gap-3 text-sm">
+            <span className="leading-snug text-gray-700" title={r.m.label}>{r.m.label}</span>
             <span className="relative block h-5">
               <span className="absolute top-1/2 h-1 w-full -translate-y-1/2 rounded bg-gray-200" />
               <span className="absolute top-1/2 h-3 -translate-y-1/2 rounded-sm bg-gray-300" style={{ left: r.pos(r.q.p25), width: `calc(${r.pos(r.q.p75)} - ${r.pos(r.q.p25)})` }} />
