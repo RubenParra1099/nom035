@@ -5,7 +5,7 @@ import { db, schema } from "@/db";
 import { canSeeCompany, requireUser } from "@/lib/auth";
 import { requiredGuide, sampleSize } from "@/lib/nom035/score";
 import { createEvaluation } from "../../../actions";
-import ChipsInput from "./ChipsInput";
+import ChipsInput from "@/components/ui/ChipsInput";
 
 export const dynamic = "force-dynamic";
 const POSITIONS = ["Operativo", "Profesional o Técnico", "Auxiliar / Asistente", "Supervisor", "Coordinador", "Gerente"];

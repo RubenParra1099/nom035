@@ -5,16 +5,19 @@ import { db, schema } from "@/db";
 import { canEdit, canSeeCompany, requireUser } from "@/lib/auth";
 import ConfirmButton from "@/components/ConfirmButton";
 import EvalHeader from "@/components/EvalHeader";
+import { Drawer, Pill, SaveButton } from "@/components/ui/forms";
 import { addComplaint, addTraining, deleteComplaint, deleteTraining, saveAreas, updateComplaint } from "../../gestion-actions";
 
 const CAT = { VIOLENCIA: "Violencia laboral", ENTORNO: "Entorno organizacional", CARGA: "Carga / jornada", OTRO: "Otro" } as const;
 const TOPIC = { POLITICA: "Política de prevención", VIOLENCIA: "Violencia laboral", LIDERAZGO: "Liderazgo", CARGA: "Carga y organización", OTRO: "Otro" } as const;
 const STATUS = { RECIBIDA: "Recibida", EN_INVESTIGACION: "En investigación", CERRADA: "Cerrada" } as const;
+const STATUS_TONE = { RECIBIDA: "amber", EN_INVESTIGACION: "blue", CERRADA: "green" } as const;
 const days = (a: string, b: string) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
 
-export default async function WorkplacePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ ev?: string }> }) {
+export default async function WorkplacePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ ev?: string; sec?: string }> }) {
   const { id } = await params;
-  const { ev: evId } = await searchParams;
+  const { ev: evId, sec: secQ } = await searchParams;
+  const sec = secQ === "quejas" || secQ === "capacitacion" ? secQ : "plantilla";
   const s = await requireUser();
   const wp = await db.query.workplaces.findFirst({ where: eq(schema.workplaces.id, id), with: { company: true, evaluations: true } });
   if (!wp || !canSeeCompany(s, wp.companyId)) notFound();
@@ -57,7 +60,20 @@ export default async function WorkplacePage({ params, searchParams }: { params: 
         </div>
       )}
 
-      <section className="card space-y-4 p-5">
+      <div className="grid gap-3 sm:grid-cols-3" role="tablist" aria-label="Sección">
+        {([
+          ["plantilla", "Plantilla por área", areaRows.length ? `${areaRows.length} áreas · ${areaTotal} de ${wp.headcount} trabajadores` : "Sin capturar"],
+          ["quejas", "Buzón de quejas", complaints.length ? `${complaints.length} quejas · ${open.length} abiertas` : "Sin quejas"],
+          ["capacitacion", "Capacitación", trainings.length ? `${trainings.length} sesiones · ${trainedPeople} participaciones` : "Sin sesiones"],
+        ] as const).map(([k, t, d]) => (
+          <Link key={k} role="tab" aria-selected={sec === k} href={`?${new URLSearchParams({ ...(evId ? { ev: evId } : {}), sec: k }).toString()}`}
+            className={`card p-4 transition ${sec === k ? "ring-2 ring-brand-600" : "hover:border-brand-600"}`}>
+            <div className="text-sm font-semibold text-ink">{t}</div><div className="text-xs text-gray-500">{d}</div>
+          </Link>
+        ))}
+      </div>
+
+      {sec === "plantilla" && <section className="card space-y-4 p-5">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div><h2 className="text-lg font-semibold">Plantilla por área</h2>
             <p className="text-sm text-gray-500">Número de trabajadores de cada área. Permite medir la participación y representatividad por área y calcular exacta la cobertura de capacitación.</p></div>
@@ -79,16 +95,16 @@ export default async function WorkplacePage({ params, searchParams }: { params: 
             <div className="flex flex-wrap items-end gap-3">
               <div><label className="label">Otra área</label><input name="newArea" className="input w-56" placeholder="Nombre del área" /></div>
               <div><label className="label">Trabajadores</label><input type="number" min={0} name="newHeadcount" className="input w-32" /></div>
-              <button className="btn-primary">Guardar plantilla</button>
+              <SaveButton>Guardar plantilla</SaveButton>
             </div>
             {areaTotal > 0 && areaTotal !== wp.headcount && <p className="text-xs text-amber-700">La suma de las áreas no coincide con la plantilla del centro ({wp.headcount}). Revisa que estén todas las áreas.</p>}
           </form>
         ) : (
           <ul className="grid gap-2 text-sm sm:grid-cols-3">{areaRows.map((a) => <li key={a.id} className="flex justify-between rounded border border-line px-3 py-2"><span>{a.name}</span><b className="tabular-nums">{a.headcount}</b></li>)}</ul>
         )}
-      </section>
+      </section>}
 
-      <section className="card space-y-4 p-5">
+      {sec === "quejas" && <section className="card space-y-4 p-5">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div><h2 className="text-lg font-semibold">Buzón de quejas</h2>
             <p className="text-sm text-gray-500">Mecanismo seguro y confidencial para recibir quejas por prácticas opuestas al entorno favorable y actos de violencia (numeral 8.1 b). No se registra la identidad de quien se queja.</p></div>
@@ -99,18 +115,20 @@ export default async function WorkplacePage({ params, searchParams }: { params: 
           </div>
         </div>
         {edit && (
-          <form action={addComplaint} className="grid gap-3 rounded-lg bg-gray-50 p-3 md:grid-cols-5 md:items-end">
-            <input type="hidden" name="workplaceId" value={id} />
-            <div><label className="label">Fecha de recepción</label><input type="date" name="receivedAt" className="input" required defaultValue={today} /></div>
-            <div><label className="label">Categoría</label><select name="category" className="input">{Object.entries(CAT).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>
-            <div><label className="label">Área</label><AreaSelect name="area" /></div>
-            <div><label className="label">Canal</label><select name="channel" className="input"><option>Buzón físico</option><option>Correo</option><option>Plataforma</option><option>Línea telefónica</option><option>Presencial</option></select></div>
-            <button className="btn-primary">Registrar queja</button>
-          </form>
+          <Drawer trigger="+ Registrar queja" title="Registrar queja" subtitle="No se registra la identidad de quien se queja.">
+            <form action={addComplaint} className="space-y-4">
+              <input type="hidden" name="workplaceId" value={id} />
+              <div><label className="label">Fecha de recepción</label><input type="date" name="receivedAt" className="input" required defaultValue={today} /></div>
+              <div><label className="label">Categoría</label><select name="category" className="input">{Object.entries(CAT).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>
+              <div><label className="label">Área</label><AreaSelect name="area" /></div>
+              <div><label className="label">Canal</label><select name="channel" className="input"><option>Buzón físico</option><option>Correo</option><option>Plataforma</option><option>Línea telefónica</option><option>Presencial</option></select></div>
+              <div className="flex justify-end border-t border-line pt-4"><SaveButton done="Queja registrada ✓">Registrar queja</SaveButton></div>
+            </form>
+          </Drawer>
         )}
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px]">
-            <thead className="border-b border-gray-100"><tr><th className="th">Recibida</th><th className="th">Categoría</th><th className="th">Área</th><th className="th">Días</th><th className="th">Estado y resolución</th><th className="th"></th></tr></thead>
+            <thead className="border-b border-gray-100"><tr><th className="th">Recibida</th><th className="th">Categoría</th><th className="th">Área</th><th className="th">Días</th><th className="th">Estado</th><th className="th">Resolución</th><th className="th"></th></tr></thead>
             <tbody className="divide-y divide-gray-100">
               {complaints.map((c) => {
                 const d = days(c.receivedAt, c.closedAt ?? today);
@@ -120,28 +138,34 @@ export default async function WorkplacePage({ params, searchParams }: { params: 
                     <td className="td">{CAT[c.category as keyof typeof CAT] ?? c.category}<div className="text-xs text-gray-400">{c.channel}</div></td>
                     <td className="td">{c.area ?? "—"}</td>
                     <td className={`td tabular-nums ${d > 30 && !c.closedAt ? "font-semibold text-red-600" : ""}`}>{d}</td>
+                    <td className="td"><Pill tone={STATUS_TONE[c.status]}>{STATUS[c.status]}</Pill>{c.closedAt && <div className="mt-0.5 text-xs text-gray-500">Cerrada {c.closedAt}</div>}</td>
+                    <td className="td max-w-[16rem] text-sm text-gray-700">{c.resolution || <span className="text-gray-400">—</span>}</td>
                     <td className="td">
-                      {edit ? (
-                        <form action={updateComplaint} className="flex flex-wrap items-center gap-2">
-                          <input type="hidden" name="id" value={c.id} />
-                          <select name="status" defaultValue={c.status} className="rounded border border-gray-300 px-2 py-1 text-sm">{Object.entries(STATUS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
-                          <input type="date" name="closedAt" defaultValue={c.closedAt ?? ""} className="rounded border border-gray-300 px-2 py-1 text-sm" title="Fecha de cierre" />
-                          <input name="resolution" defaultValue={c.resolution ?? ""} placeholder="Resolución" className="min-w-40 flex-1 rounded border border-gray-300 px-2 py-1 text-sm" />
-                          <button className="text-sm font-medium text-brand-700 hover:underline">Guardar</button>
-                        </form>
-                      ) : <>{STATUS[c.status]}{c.closedAt && ` · ${c.closedAt}`}</>}
+                      {edit && (
+                        <div className="flex items-center justify-end gap-3">
+                          <Drawer trigger="Actualizar" triggerClass="text-sm font-medium text-brand-700 hover:underline" title="Actualizar queja" subtitle={`${CAT[c.category as keyof typeof CAT] ?? c.category} · recibida ${c.receivedAt}`}>
+                            <form action={updateComplaint} className="space-y-4">
+                              <input type="hidden" name="id" value={c.id} />
+                              <div><label className="label">Estado</label><select name="status" defaultValue={c.status} className="input">{Object.entries(STATUS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>
+                              <div><label className="label">Fecha de cierre</label><input type="date" name="closedAt" defaultValue={c.closedAt ?? ""} className="input" /></div>
+                              <div><label className="label">Resolución</label><textarea name="resolution" defaultValue={c.resolution ?? ""} rows={4} className="input" placeholder="Qué se hizo y con qué resultado" /></div>
+                              <div className="flex justify-end border-t border-line pt-4"><SaveButton>Guardar</SaveButton></div>
+                            </form>
+                          </Drawer>
+                          <form action={deleteComplaint}><input type="hidden" name="id" value={c.id} /><ConfirmButton className="text-xs text-red-600 hover:underline" message="¿Eliminar este registro de queja?">Eliminar</ConfirmButton></form>
+                        </div>
+                      )}
                     </td>
-                    <td className="td">{edit && <form action={deleteComplaint}><input type="hidden" name="id" value={c.id} /><ConfirmButton className="text-xs text-red-600 hover:underline" message="¿Eliminar este registro de queja?">Eliminar</ConfirmButton></form>}</td>
                   </tr>
                 );
               })}
-              {complaints.length === 0 && <tr><td colSpan={6} className="td text-gray-500">Sin quejas registradas.</td></tr>}
+              {complaints.length === 0 && <tr><td colSpan={7} className="td text-gray-500">Sin quejas registradas.</td></tr>}
             </tbody>
           </table>
         </div>
-      </section>
+      </section>}
 
-      <section className="card space-y-4 p-5">
+      {sec === "capacitacion" && <section className="card space-y-4 p-5">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div><h2 className="text-lg font-semibold">Capacitación y sensibilización</h2>
             <p className="text-sm text-gray-500">Registra cada sesión con su evaluación diagnóstica y final (0–100) para medir la ganancia de aprendizaje.</p></div>
@@ -151,17 +175,19 @@ export default async function WorkplacePage({ params, searchParams }: { params: 
           </div>
         </div>
         {edit && (
-          <form action={addTraining} className="grid gap-3 rounded-lg bg-gray-50 p-3 md:grid-cols-4 md:items-end">
+          <Drawer trigger="+ Registrar capacitación" title="Registrar capacitación" subtitle="Con la evaluación diagnóstica y final se calcula la ganancia de aprendizaje.">
+          <form action={addTraining} className="grid gap-4 sm:grid-cols-2">
             <input type="hidden" name="workplaceId" value={id} />
-            <div className="md:col-span-2"><label className="label">Nombre de la sesión</label><input name="title" className="input" required placeholder="Ej. Prevención de la violencia laboral" /></div>
+            <div className="sm:col-span-2"><label className="label">Nombre de la sesión</label><input name="title" className="input" required placeholder="Ej. Prevención de la violencia laboral" /></div>
             <div><label className="label">Tema</label><select name="topic" className="input">{Object.entries(TOPIC).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>
             <div><label className="label">Fecha</label><input type="date" name="heldAt" className="input" required defaultValue={today} /></div>
             <div><label className="label">Área</label><AreaSelect name="area" /></div>
             <div><label className="label">Asistentes</label><input type="number" min={0} name="attendees" className="input" required /></div>
             <div><label className="label">Promedio pre (0–100)</label><input type="number" min={0} max={100} step="0.1" name="preScore" className="input" /></div>
             <div><label className="label">Promedio post (0–100)</label><input type="number" min={0} max={100} step="0.1" name="postScore" className="input" /></div>
-            <div className="md:col-span-4 md:text-right"><button className="btn-primary">Registrar capacitación</button></div>
+            <div className="flex justify-end border-t border-line pt-4 sm:col-span-2"><SaveButton done="Capacitación registrada ✓">Registrar capacitación</SaveButton></div>
           </form>
+          </Drawer>
         )}
         <div className="overflow-x-auto">
           <table className="w-full min-w-[700px]">
@@ -186,7 +212,7 @@ export default async function WorkplacePage({ params, searchParams }: { params: 
           </table>
           {scored.length > 0 && <p className="mt-2 text-xs text-gray-500">Ganancia = (post − pre) ÷ (100 − pre). Verde ≥ 0.50 · Amarillo 0.30–0.49 · Rojo &lt; 0.30.</p>}
         </div>
-      </section>
+      </section>}
     </div>
   );
 }

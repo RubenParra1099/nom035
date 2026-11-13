@@ -6,6 +6,7 @@ import { canEdit, canSeeCompany, requireUser } from "@/lib/auth";
 import { GUIDES, LEVEL_LABEL, type Level } from "@/lib/nom035/guides";
 import { aggregate, scoreWorker } from "@/lib/nom035/score";
 import { INTERVENTIONS } from "@/lib/nom035/interventions";
+import { Drawer, Pill, SaveButton } from "@/components/ui/forms";
 import ConfirmButton from "@/components/ConfirmButton";
 import { addAction, deleteAction, setActionDone } from "../../../gestion-actions";
 
@@ -72,25 +73,28 @@ export default async function ProgramPage({ params }: { params: Promise<{ id: st
         </section>
       )}
 
-      {edit && (
-        <form action={addAction} className="card grid gap-3 p-5 md:grid-cols-6 md:items-end">
-          <input type="hidden" name="evaluationId" value={id} />
-          <h2 className="font-semibold md:col-span-6">Nueva acción</h2>
-          <div className="md:col-span-2"><label className="label">Dominio objetivo</label>
-            <select name="domain" className="input">{Object.keys(g.domains).map((d) => <option key={d}>{d}</option>)}<option>Guía I · Acontecimientos traumáticos severos</option><option>Política de prevención</option></select></div>
-          <div className="md:col-span-4"><label className="label">Acción</label><input name="action" className="input" required /></div>
-          <div><label className="label">Área</label><select name="area" className="input" defaultValue=""><option value="">Todo el centro</option>{ev.departments.map((a) => <option key={a}>{a}</option>)}</select></div>
-          <div className="md:col-span-2"><label className="label">Responsable</label><input name="owner" className="input" /></div>
-          <div><label className="label">Fecha compromiso</label><input type="date" name="dueDate" className="input" required defaultValue={due90} /></div>
-          <div className="md:col-span-2 md:text-right"><button className="btn-primary">Agregar acción</button></div>
-        </form>
-      )}
-
       {actions.length > 0 && <Gantt actions={actions} today={today} />}
 
       <section className="card overflow-x-auto">
-        <table className="w-full min-w-[820px]">
-          <thead className="border-b border-gray-100"><tr><th className="th">Dominio</th><th className="th">Acción</th><th className="th">Área / responsable</th><th className="th">Compromiso</th><th className="th">Conclusión</th><th className="th"></th></tr></thead>
+        <div className="flex flex-wrap items-center justify-between gap-3 px-5 pt-4">
+          <div><h2 className="text-lg font-semibold">Acciones del programa</h2><p className="text-sm text-gray-500">{actions.length} acciones · {actions.filter((a) => a.doneAt).length} concluidas · {actions.filter((a) => !a.doneAt && a.dueDate < today).length} vencidas</p></div>
+          {edit && (
+            <Drawer trigger="+ Nueva acción" title="Nueva acción" subtitle="Acción de control del programa de intervención">
+              <form action={addAction} className="space-y-4">
+                <input type="hidden" name="evaluationId" value={id} />
+                <div><label className="label">Dominio objetivo</label>
+                  <select name="domain" className="input">{Object.keys(g.domains).map((d) => <option key={d}>{d}</option>)}<option>Guía I · Acontecimientos traumáticos severos</option><option>Política de prevención</option></select></div>
+                <div><label className="label">Acción</label><textarea name="action" rows={3} className="input" required placeholder="Qué se hará, en concreto" /></div>
+                <div><label className="label">Área</label><select name="area" className="input" defaultValue=""><option value="">Todo el centro</option>{ev.departments.map((a) => <option key={a}>{a}</option>)}</select></div>
+                <div><label className="label">Responsable</label><input name="owner" className="input" placeholder="Nombre o puesto" /></div>
+                <div><label className="label">Fecha compromiso</label><input type="date" name="dueDate" className="input" required defaultValue={due90} /></div>
+                <div className="flex justify-end border-t border-line pt-4"><SaveButton done="Acción agregada ✓">Agregar acción</SaveButton></div>
+              </form>
+            </Drawer>
+          )}
+        </div>
+        <table className="mt-3 w-full min-w-[820px]">
+          <thead className="border-b border-gray-100"><tr><th className="th">Dominio</th><th className="th">Acción</th><th className="th">Área / responsable</th><th className="th">Compromiso</th><th className="th">Estado</th><th className="th"></th></tr></thead>
           <tbody className="divide-y divide-gray-100">
             {actions.map((a) => {
               const late = !a.doneAt && a.dueDate < today;
@@ -99,18 +103,26 @@ export default async function ProgramPage({ params }: { params: Promise<{ id: st
                   <td className="td text-xs text-gray-600">{a.domain}</td>
                   <td className="td">{a.action}</td>
                   <td className="td text-sm">{a.area ?? "Todo el centro"}<div className="text-xs text-gray-400">{a.owner ?? "Sin responsable"}</div></td>
-                  <td className={`td whitespace-nowrap tabular-nums ${late ? "font-semibold text-red-600" : ""}`}>{a.dueDate}{late && <div className="text-[11px]">Vencida</div>}</td>
+                  <td className={`td whitespace-nowrap tabular-nums ${late ? "font-semibold text-red-600" : ""}`}>{a.dueDate}</td>
                   <td className="td">
-                    {edit ? (
-                      <form action={setActionDone} className="flex items-center gap-2">
-                        <input type="hidden" name="id" value={a.id} />
-                        <input type="date" name="doneAt" defaultValue={a.doneAt ?? ""} className="rounded border border-gray-300 px-2 py-1 text-sm" />
-                        <button className="text-sm font-medium text-brand-700 hover:underline">Guardar</button>
-                      </form>
-                    ) : a.doneAt ?? "Pendiente"}
-                    {a.doneAt && <div className={`text-[11px] ${a.doneAt <= a.dueDate ? "text-green-700" : "text-amber-600"}`}>{a.doneAt <= a.dueDate ? "A tiempo" : "Con retraso"}</div>}
+                    {a.doneAt ? <Pill tone={a.doneAt <= a.dueDate ? "green" : "amber"}>{a.doneAt <= a.dueDate ? "A tiempo" : "Con retraso"}</Pill> : late ? <Pill tone="red">Vencida</Pill> : <Pill tone="blue">En curso</Pill>}
+                    {a.doneAt && <div className="mt-0.5 text-xs text-gray-500">Concluida {a.doneAt}</div>}
                   </td>
-                  <td className="td">{edit && <form action={deleteAction}><input type="hidden" name="id" value={a.id} /><ConfirmButton className="text-xs text-red-600 hover:underline" message="¿Eliminar esta acción?">Eliminar</ConfirmButton></form>}</td>
+                  <td className="td">
+                    {edit && (
+                      <div className="flex items-center justify-end gap-3">
+                        <Drawer trigger={a.doneAt ? "Editar cierre" : "Marcar concluida"} triggerClass="whitespace-nowrap text-sm font-medium text-brand-700 hover:underline" title="Conclusión de la acción" subtitle={a.action}>
+                          <form action={setActionDone} className="space-y-4">
+                            <input type="hidden" name="id" value={a.id} />
+                            <div><label className="label">Fecha de conclusión</label><input type="date" name="doneAt" defaultValue={a.doneAt ?? today} className="input" /></div>
+                            <p className="text-xs text-gray-500">Compromiso: {a.dueDate}. Deje la fecha vacía para marcarla de nuevo como pendiente.</p>
+                            <div className="flex justify-end border-t border-line pt-4"><SaveButton>Guardar</SaveButton></div>
+                          </form>
+                        </Drawer>
+                        <form action={deleteAction}><input type="hidden" name="id" value={a.id} /><ConfirmButton className="text-xs text-red-600 hover:underline" message="¿Eliminar esta acción?">Eliminar</ConfirmButton></form>
+                      </div>
+                    )}
+                  </td>
                 </tr>
               );
             })}

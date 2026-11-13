@@ -6,14 +6,18 @@ import { db, schema } from "@/db";
 import { requireUser } from "@/lib/auth";
 import { toggleAttended } from "../../../actions";
 import { updateAts } from "../../../gestion-actions";
+import { Drawer, Pill, SaveButton } from "@/components/ui/forms";
 
 const ATS_STATUS = {
   IDENTIFICADO: "Identificado", CANALIZADO: "Canalizado", EN_ATENCION: "En atención", ATENDIDO: "Atendido", NO_LOCALIZABLE: "No localizable (anónimo)",
 } as const;
 const days = (a: string, b: string) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
 
-export default async function ConfidentialPage({ params }: { params: Promise<{ id: string }> }) {
+const ATS_TONE = { IDENTIFICADO: "red", CANALIZADO: "amber", EN_ATENCION: "blue", ATENDIDO: "green", NO_LOCALIZABLE: "gray" } as const;
+
+export default async function ConfidentialPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ estado?: string }> }) {
   const { id } = await params;
+  const { estado = "todos" } = await searchParams;
   await requireUser(["SUPERADMIN", "CONSULTOR"]);
   const ev = await db.query.evaluations.findFirst({ where: eq(schema.evaluations.id, id), with: { workplace: { with: { company: true } } } });
   if (!ev) notFound();
@@ -34,6 +38,15 @@ export default async function ConfidentialPage({ params }: { params: Promise<{ i
   const care = cases.filter((x) => ["EN_ATENCION", "ATENDIDO"].includes(x.f!.status)).length;
   const pending = cases.filter((x) => x.f!.status === "IDENTIFICADO");
   const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)}%` : "—");
+  const keyOf = (x: (typeof rows)[number]) => x.f ? x.f.status : "SIN_CRITERIOS";
+  const filters = [
+    { id: "todos", label: "Todos", count: rows.length },
+    ...Object.entries(ATS_STATUS).map(([k, v]) => ({ id: k, label: v.replace(" (anónimo)", ""), count: rows.filter((x) => keyOf(x) === k).length })).filter((o) => o.count > 0),
+    ...(rows.some((x) => !x.f) ? [{ id: "SIN_CRITERIOS", label: "Vivió ATS sin criterios", count: rows.filter((x) => !x.f).length }] : []),
+  ];
+  // Primero lo urgente: casos sin canalizar, del más antiguo al más reciente
+  const urgency = (x: (typeof rows)[number]) => !x.f ? -2 : x.f.canalizedAt ? -1 : days(x.f.identifiedAt, today);
+  const shown = (estado === "todos" ? rows : rows.filter((x) => keyOf(x) === estado)).sort((a, b) => urgency(b) - urgency(a));
 
   return (
     <div className="space-y-6">
@@ -50,39 +63,54 @@ export default async function ConfidentialPage({ params }: { params: Promise<{ i
       </div>
 
       <div className="card overflow-x-auto">
-        <table className="w-full min-w-[980px]">
-          <thead className="border-b border-gray-100"><tr><th className="th">Trabajador</th><th className="th">Área</th><th className="th">Guía I</th><th className="th">Identificado</th><th className="th">Seguimiento</th></tr></thead>
+        <div className="flex flex-wrap gap-1.5 px-4 pt-4" role="tablist" aria-label="Filtrar por estado">
+          {filters.map((o) => (
+            <Link key={o.id} href={o.id === "todos" ? path : `${path}?estado=${o.id}`} role="tab" aria-selected={estado === o.id}
+              className={`rounded-full border px-3 py-1 text-sm transition ${estado === o.id ? "border-brand-600 bg-brand-50 font-semibold text-brand-700" : "border-line text-gray-600 hover:border-gray-400"}`}>
+              {o.label} <span className="tabular-nums text-gray-500">{o.count}</span>
+            </Link>
+          ))}
+        </div>
+        <table className="mt-3 w-full min-w-[860px]">
+          <thead className="border-b border-gray-100"><tr><th className="th">Trabajador</th><th className="th">Área</th><th className="th">Guía I</th><th className="th">Estado</th><th className="th">Tiempo</th><th className="th">Institución y notas</th><th className="th"></th></tr></thead>
           <tbody className="divide-y divide-gray-100">
-            {rows.map(({ r, c, f }) => (
-              <tr key={r.id}>
-                <td className="td"><Link href={`${path}/${r.id}`} className="font-medium text-brand-700 hover:underline">{c?.name ?? "Anónimo"}</Link>
-                  <div className="text-xs text-gray-400">Ver ficha →</div></td>
-                <td className="td">{r.demographics.departamento ?? "—"}<div className="text-xs text-gray-500">{r.demographics.puesto}</div></td>
-                <td className="td">{r.atsRequires ? <span className="font-semibold text-red-600">Requiere valoración</span> : "Vivió ATS, sin criterios"}</td>
-                <td className="td tabular-nums">{f ? <>{f.identifiedAt}<div className="text-xs text-gray-400">{days(f.identifiedAt, f.canalizedAt ?? today)} días{f.canalizedAt ? " hasta canalizar" : " sin canalizar"}</div></> : "—"}</td>
-                <td className="td">
-                  {f ? (
-                    <form action={updateAts} className="flex flex-wrap items-center gap-2">
-                      <input type="hidden" name="id" value={f.id} /><input type="hidden" name="path" value={path} />
-                      <select name="status" defaultValue={f.status} className="rounded border border-gray-300 px-2 py-1 text-sm">
-                        {Object.entries(ATS_STATUS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                      </select>
-                      <input type="date" name="canalizedAt" defaultValue={f.canalizedAt ?? ""} title="Fecha de canalización" className="rounded border border-gray-300 px-2 py-1 text-sm" />
-                      <input name="institution" defaultValue={f.institution ?? ""} placeholder="Institución (IMSS, privado…)" className="w-44 rounded border border-gray-300 px-2 py-1 text-sm" />
-                      <input name="notes" defaultValue={f.notes ?? ""} placeholder="Notas" className="w-40 rounded border border-gray-300 px-2 py-1 text-sm" />
-                      <button className="text-sm font-medium text-brand-700 hover:underline">Guardar</button>
-                    </form>
-                  ) : c ? (
-                    <form action={toggleAttended} className="flex items-center gap-2">
-                      <input type="hidden" name="id" value={c.id} /><input type="hidden" name="path" value={path} />
-                      <input name="notes" defaultValue={c.notes ?? ""} placeholder="Notas" className="w-48 rounded border border-gray-300 px-2 py-1 text-sm" />
-                      <button className="text-sm font-medium text-brand-700 hover:underline">{c.attended ? "Atendido ✓" : "Marcar atendido"}</button>
-                    </form>
-                  ) : <span className="text-xs text-gray-500">Sin seguimiento requerido</span>}
-                </td>
-              </tr>
-            ))}
-            {rows.length === 0 && <tr><td className="td text-gray-500" colSpan={5}>Nadie reportó acontecimientos traumáticos severos.</td></tr>}
+            {shown.map(({ r, c, f }) => {
+              const d = f ? days(f.identifiedAt, f.canalizedAt ?? today) : null;
+              const late = f && !f.canalizedAt && d! > 15;
+              return (
+                <tr key={r.id} className={late ? "bg-red-50/40" : ""}>
+                  <td className="td"><Link href={`${path}/${r.id}`} className="font-medium text-brand-700 hover:underline">{c?.name ?? "Anónimo"}</Link><div className="text-xs text-gray-400">Ver ficha →</div></td>
+                  <td className="td">{r.demographics.departamento ?? "—"}<div className="text-xs text-gray-500">{r.demographics.puesto}</div></td>
+                  <td className="td">{r.atsRequires ? <span className="text-sm font-semibold text-red-600">Requiere valoración</span> : <span className="text-sm text-gray-600">Vivió ATS, sin criterios</span>}</td>
+                  <td className="td">{f ? <Pill tone={ATS_TONE[f.status]}>{ATS_STATUS[f.status]}</Pill> : c ? <Pill tone={c.attended ? "green" : "amber"}>{c.attended ? "Atendido" : "Solicitó atención"}</Pill> : <span className="text-xs text-gray-500">Sin seguimiento requerido</span>}</td>
+                  <td className={`td whitespace-nowrap text-sm tabular-nums ${late ? "font-semibold text-red-600" : "text-gray-700"}`}>
+                    {f ? <>{d} días<div className="text-[11px] font-normal text-gray-500">{f.canalizedAt ? `canalizado ${f.canalizedAt}` : `sin canalizar · desde ${f.identifiedAt}`}</div></> : "—"}
+                  </td>
+                  <td className="td max-w-[14rem] text-sm text-gray-700">{f?.institution ?? ""}{(f?.notes || c?.notes) && <div className="truncate text-xs text-gray-500" title={f?.notes || c?.notes || ""}>{f?.notes || c?.notes}</div>}{!f?.institution && !f?.notes && !c?.notes && <span className="text-gray-400">—</span>}</td>
+                  <td className="td text-right">
+                    {f ? (
+                      <Drawer trigger="Actualizar" triggerClass="text-sm font-medium text-brand-700 hover:underline" title="Seguimiento del caso" subtitle={`${c?.name ?? "Trabajador anónimo"} · ${r.demographics.departamento ?? ""}`}>
+                        <form action={updateAts} className="space-y-4">
+                          <input type="hidden" name="id" value={f.id} /><input type="hidden" name="path" value={path} />
+                          <div><label className="label">Estado</label><select name="status" defaultValue={f.status} className="input">{Object.entries(ATS_STATUS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>
+                          <div><label className="label">Fecha de canalización</label><input type="date" name="canalizedAt" defaultValue={f.canalizedAt ?? ""} className="input" /></div>
+                          <div><label className="label">Institución</label><input name="institution" defaultValue={f.institution ?? ""} placeholder="IMSS, médico de la empresa, atención privada…" className="input" /></div>
+                          <div><label className="label">Notas</label><textarea name="notes" defaultValue={f.notes ?? ""} rows={4} className="input" /></div>
+                          <p className="text-xs text-gray-500">Identificado el {f.identifiedAt}. La meta es canalizar en 15 días o menos.</p>
+                          <div className="flex justify-end border-t border-line pt-4"><SaveButton>Guardar seguimiento</SaveButton></div>
+                        </form>
+                      </Drawer>
+                    ) : c ? (
+                      <form action={toggleAttended} className="flex items-center justify-end gap-2">
+                        <input type="hidden" name="id" value={c.id} /><input type="hidden" name="path" value={path} /><input type="hidden" name="notes" value={c.notes ?? ""} />
+                        <button className="text-sm font-medium text-brand-700 hover:underline">{c.attended ? "Marcar pendiente" : "Marcar atendido"}</button>
+                      </form>
+                    ) : null}
+                  </td>
+                </tr>
+              );
+            })}
+            {shown.length === 0 && <tr><td className="td text-gray-500" colSpan={7}>{rows.length ? "Ningún caso con este estado." : "Nadie reportó acontecimientos traumáticos severos."}</td></tr>}
           </tbody>
         </table>
       </div>

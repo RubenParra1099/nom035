@@ -9,6 +9,8 @@ import { requiredGuide, sampleSize } from "@/lib/nom035/score";
 import { deleteEvaluation, deleteImportedResponses, setEvaluationStatus, updateEvaluation } from "../../actions";
 import Importer from "./Importer";
 import EvalHeader from "@/components/EvalHeader";
+import ChipsInput from "@/components/ui/ChipsInput";
+import { SaveButton } from "@/components/ui/forms";
 import ConfirmButton from "@/components/ConfirmButton";
 import CopyField from "@/components/CopyField";
 
@@ -103,22 +105,26 @@ export default async function EvaluationPage({ params }: { params: Promise<{ id:
       </div>
 
       {edit && (
-        <form action={updateEvaluation} className="card grid gap-3 p-5 md:grid-cols-2">
+        <form action={updateEvaluation} className="card space-y-4 p-5">
           <input type="hidden" name="id" value={id} />
-          <h2 className="font-semibold md:col-span-2">Configuración</h2>
-          <div className="md:col-span-2"><label className="label">Nombre</label><input name="name" defaultValue={ev.name} className="input" /></div>
-          <div><label className="label">Departamentos / áreas (uno por línea)</label><textarea name="departments" rows={5} className="input" defaultValue={ev.departments.join("\n")} /></div>
-          <div><label className="label">Tipos de puesto (uno por línea)</label><textarea name="positions" rows={5} className="input" defaultValue={ev.positions.join("\n")} /></div>
-          <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="includeGuideI" defaultChecked={ev.includeGuideI} /> Incluir Guía I</label>
-          <div className="md:text-right"><button className="btn-primary">Guardar</button></div>
+          <div><h2 className="font-semibold text-ink">Configuración</h2><p className="text-xs text-gray-500">Las áreas y puestos son las opciones del cuestionario y los filtros del tablero.</p></div>
+          <div className="max-w-md"><label className="label">Nombre</label><input name="name" defaultValue={ev.name} className="input" required minLength={2} /></div>
+          <div><label className="label">Áreas del centro</label><ChipsInput name="departments" initial={ev.departments} placeholder="Ej. Administración, Producción" /></div>
+          <div><label className="label">Tipos de puesto</label><ChipsInput name="positions" initial={ev.positions} placeholder="Ej. Operativo, Supervisor" /></div>
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="includeGuideI" defaultChecked={ev.includeGuideI} /> Incluir Guía I (acontecimientos traumáticos severos)</label>
+          <div className="flex justify-end border-t border-line pt-4"><SaveButton>Guardar cambios</SaveButton></div>
         </form>
       )}
 
       {s.role === "SUPERADMIN" && (
-        <form action={deleteEvaluation} className="text-right">
-          <input type="hidden" name="id" value={id} />
-          <ConfirmButton className="btn-danger" message="¿Eliminar la evaluación y todas sus respuestas? No se puede deshacer.">Eliminar evaluación</ConfirmButton>
-        </form>
+        <section className="rounded-xl border border-red-200 p-5">
+          <h2 className="text-sm font-semibold text-red-700">Eliminar evaluación</h2>
+          <p className="mt-1 text-sm text-gray-600">Se borran sus {stats.total} respuestas, el informe, el programa de intervención y los casos de Guía I. No se puede deshacer.</p>
+          <form action={deleteEvaluation} className="mt-3">
+            <input type="hidden" name="id" value={id} />
+            <ConfirmButton className="btn-danger" message="¿Eliminar la evaluación y todas sus respuestas? No se puede deshacer.">Eliminar evaluación</ConfirmButton>
+          </form>
+        </section>
       )}
     </div>
   );

@@ -1,5 +1,6 @@
 "use client";
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import * as XLSX from "xlsx";
 import { normalizeSheet, type NormalizedResponse } from "@/lib/nom035/importer";
 import { buildTemplate } from "@/lib/nom035/template";
@@ -34,12 +35,16 @@ export default function Importer({ evaluationId, guide, existing = 0, name, depa
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
+  const router = useRouter();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [drag, setDrag] = useState(false);
+  const [fileName, setFileName] = useState("");
   const [parsed, setParsed] = useState<Parsed | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   async function onFile(f: File) {
-    setMsg(null); setParsed(null);
+    setMsg(null); setParsed(null); setFileName(f.name);
     try {
       const wb = XLSX.read(await f.arrayBuffer(), { dense: true, cellDates: false });
       // Hoja de respuestas de Google Forms: la que tenga más encabezados "[n.- …]"
@@ -68,8 +73,9 @@ export default function Importer({ evaluationId, guide, existing = 0, name, depa
       if ("error" in res && res.error) { setMsg(res.error); setBusy(false); return; }
       total += res.ok ?? 0;
     }
-    setBusy(false); setParsed(null);
+    setBusy(false); setParsed(null); setFileName("");
     setMsg(`Se importaron ${total} respuestas y se calcularon con las reglas oficiales.`);
+    router.refresh();
   }
 
   const mismatch = parsed && parsed.guide !== guide;
@@ -79,8 +85,16 @@ export default function Importer({ evaluationId, guide, existing = 0, name, depa
         <p className="text-gray-700">¿Captura en papel o sin Google Forms? Descarga la plantilla, llena un renglón por trabajador y súbela aquí.</p>
         <button type="button" className="btn-secondary mt-2" onClick={downloadTemplate}>Descargar plantilla de Excel</button>
       </div>
-      <input type="file" accept=".xlsx,.xls,.csv" className="block w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-brand-50 file:px-3 file:py-2 file:text-brand-700"
-        onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])} />
+      <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="sr-only" aria-label="Archivo de Excel o CSV"
+        onChange={(e) => { if (e.target.files?.[0]) onFile(e.target.files[0]); e.target.value = ""; }} />
+      <button type="button" onClick={() => fileRef.current?.click()}
+        onDragOver={(e) => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)}
+        onDrop={(e) => { e.preventDefault(); setDrag(false); const f = e.dataTransfer.files?.[0]; if (f) onFile(f); }}
+        className={`flex w-full flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed px-4 py-6 text-center transition ${drag ? "border-brand-600 bg-brand-50" : "border-gray-300 hover:border-brand-600 hover:bg-gray-50"}`}>
+        <svg viewBox="0 0 24 24" className="h-7 w-7 text-brand-700" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden><path d="M12 16V4M7 9l5-5 5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        <span className="text-sm font-semibold text-ink">{fileName || "Arrastre aquí su archivo o haga clic para elegirlo"}</span>
+        <span className="text-xs text-gray-500">Excel (.xlsx, .xls) o CSV · plantilla de la plataforma o exportación de Google Forms</span>
+      </button>
       {parsed && (
         <div className="rounded-lg bg-gray-50 p-3 text-sm">
           Hoja <b>{parsed.sheet}</b> · <b>{parsed.responses.length}</b> respuestas · detectado:{" "}
