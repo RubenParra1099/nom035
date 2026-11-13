@@ -44,7 +44,7 @@ export async function createWorkplace(form: FormData) {
     .parse({ companyId: form.get("companyId"), name: form.get("name"), address: form.get("address") || undefined, headcount: form.get("headcount") });
   const [w] = await db.insert(schema.workplaces).values(d).returning();
   await audit(s, "create", "workplace", w.id);
-  revalidatePath(`/admin/empresas/${d.companyId}`);
+  redirect(`/admin/empresas/${d.companyId}?centro=${w.id}`);
 }
 
 /** Elimina un centro de trabajo con sus evaluaciones, respuestas, plantilla por área, quejas, capacitaciones y seguimientos. */
@@ -54,8 +54,8 @@ export async function deleteWorkplace(form: FormData) {
   const [w] = await db.delete(schema.workplaces).where(eq(schema.workplaces.id, id)).returning();
   if (!w) return;
   await audit(s, "delete", "workplace", id);
-  revalidatePath(`/admin/empresas/${w.companyId}`);
   revalidatePath("/admin");
+  redirect(`/admin/empresas/${w.companyId}`);
 }
 
 export async function updateWorkplace(form: FormData) {
