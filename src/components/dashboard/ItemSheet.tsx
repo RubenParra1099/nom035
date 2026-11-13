@@ -1,4 +1,6 @@
 "use client";
+import Help from "@/components/ui/Help";
+import { HELP, type HelpId } from "@/lib/help";
 import { LogoMark } from "@/components/Logo";
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
@@ -108,7 +110,7 @@ export default function ItemSheet({
           </div>
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Ficha técnica · Reactivo {n} de {g.items}</p>
+              <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-brand-700">Ficha técnica · Reactivo {n} de {g.items}<Help id="is.ficha" /></p>
               <h2 className="mt-1 text-lg font-semibold leading-snug text-gray-900">{g.text(n)}</h2>
             </div>
             <div className="no-print flex shrink-0 gap-2">
@@ -255,7 +257,7 @@ function Section({ title, subtitle, right, children, className = "" }: { title: 
   return (
     <section className={`card p-4 ${className}`}>
       <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
-        <div><h3 className="text-sm font-semibold text-gray-900">{title}</h3>{subtitle && <p className="text-xs text-gray-500">{subtitle}</p>}</div>
+        <div><h3 className="flex items-center gap-1.5 text-sm font-semibold text-gray-900">{title}{`is.${title}` in HELP && <Help id={`is.${title}` as HelpId} />}</h3>{subtitle && <p className="text-xs text-gray-500">{subtitle}</p>}</div>
         {right}
       </div>
       {children}

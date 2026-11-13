@@ -1,3 +1,4 @@
+import Help from "@/components/ui/Help";
 import Link from "next/link";
 import EvalHeader from "@/components/EvalHeader";
 import { notFound } from "next/navigation";
@@ -70,6 +71,7 @@ export default async function ConfidentialPage({ params, searchParams }: { param
               {o.label} <span className="tabular-nums text-gray-500">{o.count}</span>
             </Link>
           ))}
+          <span className="ml-1 flex items-center"><Help id="g1.estados" /></span>
         </div>
         <table className="mt-3 w-full min-w-[860px]">
           <thead className="border-b border-gray-100"><tr><th className="th">Trabajador</th><th className="th">Área</th><th className="th">Guía I</th><th className="th">Estado</th><th className="th">Tiempo</th><th className="th">Institución y notas</th><th className="th"></th></tr></thead>
@@ -116,7 +118,7 @@ export default async function ConfidentialPage({ params, searchParams }: { param
       </div>
       {others.length > 0 && (
         <div className="card overflow-x-auto">
-          <h2 className="px-3 pt-3 font-semibold">Solicitudes de atención sin acontecimiento traumático</h2>
+          <h2 className="flex items-center gap-2 px-3 pt-3 font-semibold">Solicitudes de atención sin acontecimiento traumático<Help id="g1.solicitudes" /></h2>
           <table className="w-full"><tbody className="divide-y divide-gray-100">
             {others.map(({ r, c }) => (
               <tr key={r.id}>

@@ -1,4 +1,5 @@
 "use client";
+import Help from "@/components/ui/Help";
 import { LogoMark } from "@/components/Logo";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
@@ -79,7 +80,7 @@ export default function GuideCatalog() {
   return (
     <div className="space-y-5">
       <div className="print:hidden">
-        <h1 className="text-2xl font-semibold tracking-tight text-ink">Guías de referencia</h1>
+        <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight text-ink">Guías de referencia<Help id="guias" /></h1>
         <p className="text-sm text-gray-500">Los cuestionarios de la NOM-035-STPS-2018 en sus tres modalidades: como los ve el trabajador, con su ficha técnica y en formato para imprimir.</p>
       </div>
 

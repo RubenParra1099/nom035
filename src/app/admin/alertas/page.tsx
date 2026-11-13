@@ -1,3 +1,4 @@
+import Help from "@/components/ui/Help";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { getAlerts, type Alert } from "@/lib/alerts";
@@ -27,7 +28,7 @@ export default async function AlertsPage({ searchParams }: { searchParams: Promi
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Alertas</h1>
+        <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">Alertas<Help id="alertas" /><Help id="al.severidad" /></h1>
         <p className="text-sm text-gray-500">Se calculan al momento con los datos de todas tus empresas: casos de Guía I, programa de intervención, quejas, indicadores en rojo y avance de la captura.</p>
       </div>
       <div className="grid gap-4 sm:grid-cols-3">

@@ -1,3 +1,4 @@
+import Help from "@/components/ui/Help";
 import Link from "next/link";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
@@ -54,7 +55,7 @@ export default async function EvaluationPage({ params }: { params: Promise<{ id:
         <div className="card p-4"><div className="text-xs text-gray-500">Respuestas</div><div className="text-3xl font-semibold">{stats.total}</div>
           <div className="text-xs text-gray-500">{stats.online} en línea · {stats.imported} importadas</div></div>
         <div className="card p-4 md:col-span-2"><div className="text-xs text-gray-500">
-          {ev.guide === "GUIA_III" ? `Avance contra la muestra mínima (${target} de ${N} trabajadores)` : `Avance contra el total de trabajadores (${N})`}</div>
+          {ev.guide === "GUIA_III" ? `Avance contra la muestra mínima (${target} de ${N} trabajadores)` : `Avance contra el total de trabajadores (${N})`} <Help id="ev.avance" /></div>
           <div className="mt-2 h-3 overflow-hidden rounded-full bg-gray-100"><div className="h-full bg-brand-600" style={{ width: `${pct}%` }} /></div>
           <div className="mt-1 text-sm">{pct}%</div></div>
         <div className="card p-4"><div className="text-xs text-gray-500">Guía I · requieren valoración clínica</div>
@@ -67,7 +68,7 @@ export default async function EvaluationPage({ params }: { params: Promise<{ id:
 
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="card space-y-3 p-5">
-          <h2 className="font-semibold">Enlace del cuestionario</h2>
+          <h2 className="flex items-center gap-2 font-semibold">Enlace del cuestionario<Help id="ev.enlace" /></h2>
           <p className="text-sm text-gray-600">Estado: <b>{statusLabel}</b></p>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -91,7 +92,7 @@ export default async function EvaluationPage({ params }: { params: Promise<{ id:
 
         {edit && (
           <section className="card space-y-3 p-5">
-            <h2 className="font-semibold">Subir respuestas desde Excel</h2>
+            <h2 className="flex items-center gap-2 font-semibold">Subir respuestas desde Excel<Help id="ev.excel" /></h2>
             <p className="text-sm text-gray-600">Acepta la plantilla de captura o el Excel/CSV exportado de Google Forms (como “NOM-035 MADRE 72/46”). Se detectan los reactivos por su número, se valida la guía y se recalcula todo con las reglas oficiales.</p>
             <Importer evaluationId={id} guide={ev.guide} existing={stats.imported} name={ev.name} departments={ev.departments} positions={ev.positions} includeGuideI={ev.includeGuideI} />
             {stats.imported > 0 && (
@@ -107,7 +108,7 @@ export default async function EvaluationPage({ params }: { params: Promise<{ id:
       {edit && (
         <form action={updateEvaluation} className="card space-y-4 p-5">
           <input type="hidden" name="id" value={id} />
-          <div><h2 className="font-semibold text-ink">Configuración</h2><p className="text-xs text-gray-500">Las áreas y puestos son las opciones del cuestionario y los filtros del tablero.</p></div>
+          <div><h2 className="flex items-center gap-2 font-semibold text-ink">Configuración<Help id="ev.config" /></h2><p className="text-xs text-gray-500">Las áreas y puestos son las opciones del cuestionario y los filtros del tablero.</p></div>
           <div className="max-w-md"><label className="label">Nombre</label><input name="name" defaultValue={ev.name} className="input" required minLength={2} /></div>
           <div><label className="label">Áreas del centro</label><ChipsInput name="departments" initial={ev.departments} placeholder="Ej. Administración, Producción" /></div>
           <div><label className="label">Tipos de puesto</label><ChipsInput name="positions" initial={ev.positions} placeholder="Ej. Operativo, Supervisor" /></div>

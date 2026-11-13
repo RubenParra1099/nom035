@@ -1,3 +1,4 @@
+import Help from "@/components/ui/Help";
 import { Fragment } from "react";
 import { Logo } from "@/components/Logo";
 import { notFound } from "next/navigation";
@@ -112,7 +113,7 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
           subtitle="Documento con el contenido que pide la NOM-035 para el informe de la identificación y análisis. Usa “Imprimir / PDF” y elige “Guardar como PDF”." right={<PrintButton />} />
         {edit && (
           <details className="card p-4" open={!report}>
-            <summary className="cursor-pointer font-semibold">Datos del informe {report ? <span className="ml-2 text-xs font-normal text-gray-500">guardados</span> : <span className="ml-2 text-xs font-normal text-amber-600">complétalos antes de descargar</span>}</summary>
+            <summary className="cursor-pointer font-semibold">Datos del informe <Help id="inf.datos" /> {report ? <span className="ml-2 text-xs font-normal text-gray-500">guardados</span> : <span className="ml-2 text-xs font-normal text-amber-600">complétalos antes de descargar</span>}</summary>
             <form action={saveReport} className="mt-3 grid gap-3 md:grid-cols-2">
               <input type="hidden" name="evaluationId" value={id} />
               <div><label className="label">Actividad principal del centro de trabajo</label><input name="activity" className="input" defaultValue={report?.activity ?? ""} placeholder="Ej. Construcción de obra civil" /></div>

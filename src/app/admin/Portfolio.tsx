@@ -1,4 +1,5 @@
 "use client";
+import Help from "@/components/ui/Help";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { LEVEL_LABEL, type Level } from "@/lib/nom035/guides";
@@ -55,6 +56,7 @@ export default function Portfolio({ rows }: { rows: PortfolioRow[] }) {
             <option value="reciente">Evaluación más reciente</option><option value="nombre">Nombre</option>
           </select>
         </label>
+        <Help id="cartera.tabla" />
       </div>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[980px]">

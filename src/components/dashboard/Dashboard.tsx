@@ -1,4 +1,6 @@
 "use client";
+import Help from "@/components/ui/Help";
+import { HELP, panelHelp, type HelpId } from "@/lib/help";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { GUIDES, LEVELS, LEVEL_ACTION, LEVEL_LABEL, itemsOfDomain, type GuideId, type Level } from "@/lib/nom035/guides";
 import { aggregate, sampleSize, scoreWorker, type ScoreResult } from "@/lib/nom035/score";
@@ -134,7 +136,8 @@ function DashboardInner({ evaluation: ev, records, previous, intervention, areaH
         clear={(k) => setFilters((f) => (k ? { ...f, [k]: [] } : {}))} n={n} total={records.length}
         previous={previous} compareId={compareId} setCompareId={setCompareId} />
 
-      <nav className="flex gap-1 overflow-x-auto rounded-xl bg-gray-100 p-1 print:hidden" role="tablist">
+      <div className="flex items-center gap-2 print:hidden">
+      <nav className="flex min-w-0 flex-1 gap-1 overflow-x-auto rounded-xl bg-gray-100 p-1" role="tablist">
         {TABS.filter((t) => t.id !== "guia1" || ev.includeGuideI || records.some((r) => Object.keys(r.p).length)).map((t) => (
           <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)}
             className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition ${tab === t.id ? "bg-surface text-ink shadow-sm" : "text-gray-500 hover:text-gray-800"}`}>
@@ -142,6 +145,8 @@ function DashboardInner({ evaluation: ev, records, previous, intervention, areaH
           </button>
         ))}
       </nav>
+      <Help id={`tab.${tab}` as HelpId} />
+      </div>
 
       {records.length === 0 ? (
         <Empty>Aún no hay respuestas en esta evaluación.</Empty>
@@ -205,7 +210,7 @@ function FilterBar({ dimensions, records, filters, match, toggle, clear, n, tota
   return (
     <div ref={ref} className="card z-20 space-y-2 p-3 md:sticky md:top-0 print:static">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="hidden text-xs font-semibold uppercase tracking-wide text-gray-500 md:inline">Filtros</span>
+        <span className="hidden items-center gap-1 text-xs font-semibold uppercase tracking-wide text-gray-500 md:inline-flex">Filtros <Help id="tab.filtros" /></span>
         <button type="button" onClick={() => setMobile((m) => !m)} aria-expanded={mobile}
           className="inline-flex items-center gap-1.5 rounded-full border border-gray-300 px-3 py-1 text-sm text-gray-700 md:hidden">
           Filtros{chips.length > 0 && <span className="rounded-full bg-brand-600 px-1.5 text-[11px] text-white">{chips.length}</span>} <span aria-hidden className="text-gray-400">{mobile ? "▴" : "▾"}</span>
@@ -275,7 +280,7 @@ function Panel({ title, subtitle, right, children, className = "" }: { title: st
   return (
     <section className={`card p-5 ${className}`}>
       <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
-        <div><h2 className="text-base font-semibold text-gray-900">{title}</h2>{subtitle && <p className="text-xs text-gray-500">{subtitle}</p>}</div>
+        <div><h2 className="flex items-center gap-1.5 text-base font-semibold text-gray-900">{title}{(() => { const h = panelHelp(title); return h ? <Help id={h} /> : null; })()}</h2>{subtitle && <p className="text-xs text-gray-500">{subtitle}</p>}</div>
         {right}
       </div>
       {children}
@@ -294,7 +299,7 @@ function Delta({ now, before }: { now: number; before?: number }) {
 function Kpi({ label, value, sub, tone }: { label: string; value: React.ReactNode; sub?: React.ReactNode; tone?: string }) {
   return (
     <div className="card p-4">
-      <div className="text-xs font-medium text-gray-500">{label}</div>
+      <div className="flex items-start justify-between gap-1 text-xs font-medium text-gray-500">{label}{`k.${label}` in HELP && <Help id={`k.${label}` as HelpId} />}</div>
       <div className={`mt-1 text-2xl font-bold tabular-nums ${tone ?? "text-gray-900"}`}>{value}</div>
       {sub && <div className="mt-0.5 text-xs text-gray-500">{sub}</div>}
     </div>
@@ -691,7 +696,7 @@ function Plan({ ev, g, agg, n, fRecs, maxDomain }: { ev: Props["evaluation"]; g:
 
       {ev.includeGuideI && req > 0 && (
         <section className="card border-red-200 bg-red-50 p-5">
-          <h2 className="font-semibold text-red-800">Atención prioritaria · Guía I</h2>
+          <h2 className="flex items-center gap-1.5 font-semibold text-red-800">Atención prioritaria · Guía I <Help id="cartera.guia1" /></h2>
           <p className="mt-1 text-sm text-red-800">{req} {req === 1 ? "trabajador requiere" : "trabajadores requieren"} valoración clínica. {GUIA_I_ACTION}</p>
         </section>
       )}
@@ -757,7 +762,7 @@ function Kpis({ kpis, filtered, hasPrev, history }: { kpis: Kpi[]; filtered: boo
       </div>
       {([1, 2, 3, 4] as const).map((dim) => (
         <section key={dim} className="space-y-2">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">{dim} · {DIM_NAMES[dim]}</h2>
+          <h2 className="flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wide text-gray-500">{dim} · {DIM_NAMES[dim]}{dim === 1 && <Help id="kpis" />}</h2>
           <div className="grid items-start gap-3 md:grid-cols-2 xl:grid-cols-3">
             {kpis.filter((k) => k.dim === dim).map((k) => {
               const st = LIGHT_STYLE[k.light];
@@ -769,7 +774,7 @@ function Kpis({ kpis, filtered, hasPrev, history }: { kpis: Kpi[]; filtered: boo
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <div className="text-[11px] font-semibold text-gray-500">{k.id} · {k.short} · {k.type}{k.scope === "centro" ? " · centro" : ""}</div>
-                        <h3 className="text-sm font-semibold leading-snug text-gray-900">{k.name}</h3>
+                        <h3 className="text-sm font-semibold leading-snug text-gray-900">{k.name} <Help className="ml-0.5" title={`${k.short} · ${k.name}`} text={<><p>{k.detail}.</p><p><b className="text-ink">Fórmula:</b> {k.formula}</p><p><b className="text-ink">Semáforo:</b> {k.thresholds}</p><p><b className="text-ink">Fuente:</b> {k.source} · {k.frequency}</p></>} /></h3>
                       </div>
                       <span className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: st.bg, color: st.fg }}>{st.label}</span>
                     </div>

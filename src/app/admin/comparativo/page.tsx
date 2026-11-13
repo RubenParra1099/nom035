@@ -1,3 +1,4 @@
+import Help from "@/components/ui/Help";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { BENCH_KPIS, CATEGORY_ORDER, levelOfIndex, loadBenchmark, quantiles, scopeFor, type BenchRow } from "@/lib/benchmark";
@@ -58,7 +59,7 @@ export default async function BenchmarkPage({ searchParams }: { searchParams: Pr
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Comparativo entre clientes</h1>
+        <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">Comparativo entre clientes<Help id="comparativo" /></h1>
         <p className="max-w-3xl text-sm text-gray-500">
           Evaluación más reciente de cada centro de trabajo con 5 o más respuestas. Las categorías se comparan con un índice 0–5 (cada punto es un nivel de la norma) para poner en la misma escala la Guía II y la Guía III.
           {anonymous && " Los demás centros se muestran de forma anónima."}
@@ -84,7 +85,7 @@ export default async function BenchmarkPage({ searchParams }: { searchParams: Pr
 
           <section className="card p-5">
             <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
-              <div><h2 className="text-base font-semibold">Ranking por trabajadores en nivel alto o muy alto</h2>
+              <div><h2 className="flex items-center gap-2 text-base font-semibold">Ranking por trabajadores en nivel alto o muy alto<Help id="co.ranking" /></h2>
                 <p className="text-xs text-gray-500">Barra: % de trabajadores con calificación final alta o muy alta; línea: margen de error al 95%; color: nivel de la calificación final promedio.</p></div>
               <div className="flex gap-4 text-xs text-gray-600">
                 <span className="inline-flex items-center gap-1.5"><span className="h-3 w-0.5 bg-gray-800" />Promedio del portafolio {f1(meanHi)}%</span>
@@ -118,7 +119,7 @@ export default async function BenchmarkPage({ searchParams }: { searchParams: Pr
           </section>
 
           <section className="card overflow-x-auto p-5">
-            <h2 className="text-base font-semibold">Mapa de calor del portafolio</h2>
+            <h2 className="flex items-center gap-2 text-base font-semibold">Mapa de calor del portafolio<Help id="co.heatmap" /></h2>
             <p className="mb-3 text-xs text-gray-500">Categorías: índice 0–5 coloreado por nivel. Indicadores: valor coloreado por su semáforo.</p>
             <table className="w-full min-w-[980px] border-separate border-spacing-0.5 text-xs">
               <thead><tr>
@@ -178,7 +179,7 @@ function Position({ focus, pool, metrics, name, sectorName, sectorPool }: { focu
   const worst = rows.filter((r) => r.bad).sort((a, b) => (b.ratio ?? 0) - (a.ratio ?? 0));
   return (
     <section className="card p-5">
-      <h2 className="text-base font-semibold">Posición de {name}</h2>
+      <h2 className="flex items-center gap-2 text-base font-semibold">Posición de {name}<Help id="co.posicion" /></h2>
       <p className="mb-1 text-xs text-gray-500">Contra {pool.length} centros del portafolio{sectorName && sectorPool.length >= MIN_POOL ? ` (${sectorPool.length} del sector ${sectorName})` : ""}. Barra gris: rango; bloque: cuartil 2–3; raya: mediana; punto: este centro.</p>
       {worst.length > 0 && (
         <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">

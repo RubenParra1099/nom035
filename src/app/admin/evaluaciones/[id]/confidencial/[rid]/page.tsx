@@ -1,3 +1,4 @@
+import Help from "@/components/ui/Help";
 import { PrintHeader } from "@/components/Logo";
 import { Fragment } from "react";
 import Link from "next/link";
@@ -71,7 +72,7 @@ export default async function WorkerSheet({ params }: { params: Promise<{ id: st
         <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Ficha del trabajador · Confidencial</p>
         <div className="mt-1 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-semibold text-gray-900">{contact?.name ?? "Trabajador anónimo"}</h1>
+            <h1 className="flex items-center gap-2 text-2xl font-semibold text-gray-900">{contact?.name ?? "Trabajador anónimo"}<Help id="ficha" /></h1>
             <p className="text-sm text-gray-500">{ev.workplace.company.name} · {ev.workplace.name} · {ev.name} · {g.name}</p>
           </div>
           <div className="text-right text-sm text-gray-600">
@@ -96,7 +97,7 @@ export default async function WorkerSheet({ params }: { params: Promise<{ id: st
 
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="card p-5">
-          <h2 className="mb-3 text-base font-semibold text-gray-900">Datos generales</h2>
+          <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-gray-900">Datos generales<Help id="fi.datos" /></h2>
           <dl className="grid grid-cols-[minmax(0,11rem)_1fr] gap-x-3 gap-y-1.5 text-sm">
             {DEMO_QUESTIONS.map((q) => <Fragment key={q.key}><dt className="text-gray-500">{q.label.replace(/ \(.*\)$/, "")}</dt><dd className="text-gray-900">{r.demographics[q.key] || "—"}</dd></Fragment>)}
             <dt className="text-gray-500">Atiende clientes o usuarios</dt><dd>{r.servesClients === null ? "—" : r.servesClients ? "Sí" : "No"}</dd>
@@ -110,7 +111,7 @@ export default async function WorkerSheet({ params }: { params: Promise<{ id: st
         </section>
 
         <section className="card p-5">
-          <h2 className="mb-3 text-base font-semibold text-gray-900">Categorías y dominios</h2>
+          <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-gray-900">Categorías y dominios<Help id="fi.categorias" /></h2>
           <table className="w-full text-sm">
             <tbody className="divide-y divide-gray-100">
               {Object.entries(g.categories).map(([cat, doms]) => (
@@ -126,7 +127,7 @@ export default async function WorkerSheet({ params }: { params: Promise<{ id: st
 
       {r.guideI && (
         <section className="card p-5">
-          <h2 className="mb-1 text-base font-semibold text-gray-900">Guía I · Acontecimientos traumáticos severos</h2>
+          <h2 className="mb-1 flex items-center gap-2 text-base font-semibold text-gray-900">Guía I · Acontecimientos traumáticos severos<Help id="fi.guia1" /></h2>
           <p className="mb-3 text-xs text-gray-500">Requiere valoración clínica si la sección I tiene algún Sí y además: sección II ≥ 1, sección III ≥ 3 o sección IV ≥ 2.</p>
           <div className="grid gap-4 lg:grid-cols-2">
             {G1_SECTIONS.map((sec, si) => {
@@ -155,7 +156,7 @@ export default async function WorkerSheet({ params }: { params: Promise<{ id: st
 
       <section className="card p-5">
         <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
-          <div><h2 className="text-base font-semibold text-gray-900">Respuestas a los {g.items} reactivos</h2>
+          <div><h2 className="flex items-center gap-2 text-base font-semibold text-gray-900">Respuestas a los {g.items} reactivos<Help id="fi.reactivos" /></h2>
             <p className="text-xs text-gray-500">Los puntos van de 0 (sin riesgo) a 4 (máximo riesgo). En reactivos positivos, “Siempre” vale 0.</p></div>
           <div className="flex flex-wrap gap-3 text-xs text-gray-600">{["Sin riesgo (0)", "Bajo (1)", "Intermedio (2)", "Alto (3)", "Máximo (4)"].map((l, i) => <span key={l} className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: RISK[i] }} />{l}</span>)}</div>
         </div>

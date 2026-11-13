@@ -1,3 +1,4 @@
+import Help from "@/components/ui/Help";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { eq, sql } from "drizzle-orm";
@@ -40,7 +41,7 @@ export default async function NewEvaluationPage({ params }: { params: Promise<{ 
         <nav aria-label="Ruta" className="text-sm text-gray-500">
           <Link href="/admin" className="hover:text-gray-900">Empresas</Link> › <Link href={`/admin/empresas/${w.companyId}`} className="hover:text-gray-900">{w.company.name}</Link> › <Link href={back} className="hover:text-gray-900">{w.name}</Link> › Nueva evaluación
         </nav>
-        <h1 className="text-2xl font-semibold text-ink">Nueva evaluación · {w.name}</h1>
+        <h1 className="flex items-center gap-2 text-2xl font-semibold text-ink">Nueva evaluación · {w.name}<Help id="nuevaeval" /></h1>
         <p className="text-sm text-gray-500">{w.company.name}</p>
       </div>
       <NewEvalForm action={createEvaluation} workplaceId={w.id} back={back} defaultName={`Evaluación ${MONTHS.at(now.getMonth())} ${now.getFullYear()}`}

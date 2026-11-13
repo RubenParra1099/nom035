@@ -1,3 +1,4 @@
+import Help from "@/components/ui/Help";
 import Link from "next/link";
 import { asc } from "drizzle-orm";
 import { db, schema } from "@/db";
@@ -20,7 +21,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Usuarios</h1>
+        <h1 className="flex items-center gap-2 text-2xl font-semibold">Usuarios<Help id="usuarios" /></h1>
         <p className="text-sm text-gray-500">Solo los administradores pueden dar de alta, editar o desactivar usuarios.</p>
       </div>
       {q.error && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{q.error}</div>}

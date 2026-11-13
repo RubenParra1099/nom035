@@ -1,3 +1,4 @@
+import Help from "@/components/ui/Help";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { eq, inArray, sql } from "drizzle-orm";
@@ -67,7 +68,7 @@ export default async function CompanyPage({ params, searchParams }: {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <nav aria-label="Ruta" className="text-sm text-gray-500"><Link href="/admin" className="hover:text-gray-900">Empresas</Link> › <span>{company.name}</span></nav>
-          <h1 className="text-2xl font-semibold text-ink">{company.name}</h1>
+          <h1 className="flex items-center gap-2 text-2xl font-semibold text-ink">{company.name}<Help id="empresa" /></h1>
           <p className="text-sm text-gray-500">{[company.sector ?? "Giro sin especificar", company.rfc, `${wps.length} ${wps.length === 1 ? "centro de trabajo" : "centros de trabajo"}`].filter(Boolean).join(" · ")}</p>
         </div>
         {edit && <Link href={`${base}?nuevo=centro`} className="btn-secondary">+ Agregar centro</Link>}
@@ -113,7 +114,7 @@ export default async function CompanyPage({ params, searchParams }: {
         <section className="card min-w-0 p-0">
           {adding ? (
             <div className="p-6">
-              <h2 className="text-lg font-semibold text-ink">Nuevo centro de trabajo</h2>
+              <h2 className="flex items-center gap-2 text-lg font-semibold text-ink">Nuevo centro de trabajo<Help id="empresa.nuevocentro" /></h2>
               <p className="mt-1 text-sm text-gray-500">La NOM-035 se aplica por centro de trabajo. Con el número de trabajadores la plataforma define la guía que aplica y la muestra mínima.</p>
               <form action={createWorkplace} className="mt-4 grid max-w-2xl gap-4 md:grid-cols-2">
                 <input type="hidden" name="companyId" value={company.id} />
@@ -130,7 +131,7 @@ export default async function CompanyPage({ params, searchParams }: {
             <>
               <div className="flex flex-wrap items-start justify-between gap-3 px-6 pt-5">
                 <div>
-                  <h2 className="text-xl font-semibold text-ink">{w.name}</h2>
+                  <h2 className="flex items-center gap-2 text-xl font-semibold text-ink">{w.name}<Help id="empresa.centro" /></h2>
                   <p className="text-sm text-gray-500">{w.headcount} trabajadores · {guideText(w.headcount)}{w.address ? ` · ${w.address}` : ""}</p>
                 </div>
                 {edit && <Link href={`/admin/centros/${w.id}/nueva-evaluacion`} className="btn-primary">+ Nueva evaluación</Link>}

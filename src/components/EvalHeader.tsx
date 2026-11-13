@@ -1,3 +1,5 @@
+import Help from "@/components/ui/Help";
+import type { HelpId } from "@/lib/help";
 import Link from "next/link";
 
 export type EvalTab = "evaluacion" | "tablero" | "informe" | "programa" | "gestion" | "guia1";
@@ -27,6 +29,7 @@ export default function EvalHeader({ ev, active, canSeeConfidential, title, subt
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-2xl font-semibold tracking-tight text-ink">{title ?? ev.name}</h1>
+            <Help id={`mod.${active}` as HelpId} />
             <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700">{ev.guide === "GUIA_III" ? "Guía III · 72" : "Guía II · 46"}</span>
             {ev.includeGuideI && <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700">+ Guía I</span>}
           </div>

@@ -1,4 +1,6 @@
 "use client";
+import Help from "@/components/ui/Help";
+import type { HelpId } from "@/lib/help";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { requiredGuide, sampleSize } from "@/lib/nom035/score";
@@ -11,11 +13,11 @@ const GUIDES = [
   { id: "GUIA_III", name: "Guía III · 72 reactivos", desc: "Centros de más de 50 trabajadores. Agrega la evaluación del entorno organizacional; se aplica a una muestra." },
 ] as const;
 
-function Step({ n, t, d }: { n: number; t: string; d?: string }) {
+function Step({ n, t, d, h }: { n: number; t: string; d?: string; h?: HelpId }) {
   return (
     <div className="flex items-baseline gap-3">
       <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-brand-600 text-xs font-bold text-white">{n}</span>
-      <div><h2 className="text-base font-semibold text-ink">{t}</h2>{d && <p className="text-xs text-gray-500">{d}</p>}</div>
+      <div><h2 className="flex items-center gap-1.5 text-base font-semibold text-ink">{t}{h && <Help id={h} />}</h2>{d && <p className="text-xs text-gray-500">{d}</p>}</div>
     </div>
   );
 }
@@ -68,7 +70,7 @@ export default function NewEvalForm({ action, workplaceId, back, defaultName, he
         <input type="hidden" name="areaHeadcount" value={JSON.stringify(Object.fromEntries(named.filter((r) => r.count !== "").map((r) => [r.name.trim(), parseInt(r.count, 10) || 0])))} />
 
         <div className="space-y-3">
-          <Step n={1} t="Datos de la evaluación" />
+          <Step n={1} t="Datos de la evaluación" h="ne.datos" />
           <div className="pl-9">
             <label className="label" htmlFor="name">Nombre</label>
             <input id="name" name="name" className="input max-w-md" required minLength={2} defaultValue={defaultName} />
@@ -76,7 +78,7 @@ export default function NewEvalForm({ action, workplaceId, back, defaultName, he
         </div>
 
         <div className="space-y-3">
-          <Step n={2} t="Plantilla del centro" d="Trabajadores por área al momento de esta evaluación. Las áreas son las opciones de “Departamento / área” del cuestionario y los filtros del tablero." />
+          <Step n={2} h="ne.plantilla" t="Plantilla del centro" d="Trabajadores por área al momento de esta evaluación. Las áreas son las opciones de “Departamento / área” del cuestionario y los filtros del tablero." />
           <div className="space-y-3 pl-9">
             <div className="flex flex-wrap items-end gap-4">
               <div>
@@ -120,7 +122,7 @@ export default function NewEvalForm({ action, workplaceId, back, defaultName, he
         </div>
 
         <div className="space-y-3">
-          <Step n={3} t="Cuestionario" d="Se sugiere según el total de trabajadores del centro" />
+          <Step n={3} h="ne.cuestionario" t="Cuestionario" d="Se sugiere según el total de trabajadores del centro" />
           <div className="grid gap-3 pl-9 md:grid-cols-2">
             {GUIDES.map((g) => (
               <label key={g.id} className="relative flex cursor-pointer gap-3 rounded-xl border border-line p-4 transition has-[:checked]:border-brand-600 has-[:checked]:bg-brand-50">
@@ -140,7 +142,7 @@ export default function NewEvalForm({ action, workplaceId, back, defaultName, he
         </div>
 
         <div className="space-y-3">
-          <Step n={4} t="Tipos de puesto" d="Opciones de “Tipo de puesto” en el cuestionario" />
+          <Step n={4} h="ne.puestos" t="Tipos de puesto" d="Opciones de “Tipo de puesto” en el cuestionario" />
           <div className="pl-9">
             <ChipsInput name="positions" initial={positions} suggestions={positionSuggestions} placeholder="Ej. Operativo, Supervisor" suggestLabel="Puestos estándar sin agregar:" />
           </div>
@@ -154,7 +156,7 @@ export default function NewEvalForm({ action, workplaceId, back, defaultName, he
 
       <aside className="space-y-4 lg:sticky lg:top-6 lg:self-start">
         <div className="card p-5">
-          <h2 className="text-sm font-semibold text-ink">Resumen</h2>
+          <h2 className="flex items-center gap-1.5 text-sm font-semibold text-ink">Resumen<Help id="ne.resumen" /></h2>
           <dl className="mt-3 space-y-2 text-sm">
             <div className="flex justify-between"><dt className="text-gray-500">Trabajadores</dt><dd className="font-semibold text-ink">{N || "—"}</dd></div>
             <div className="flex justify-between"><dt className="text-gray-500">Áreas</dt><dd className="font-semibold text-ink">{named.length}</dd></div>

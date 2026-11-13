@@ -1,3 +1,4 @@
+import Help from "@/components/ui/Help";
 import EvalHeader from "@/components/EvalHeader";
 import { notFound } from "next/navigation";
 import { asc, eq } from "drizzle-orm";
@@ -46,7 +47,7 @@ export default async function ProgramPage({ params }: { params: Promise<{ id: st
 
       {edit && priority.length > 0 && (
         <section className="card space-y-3 p-5">
-          <h2 className="text-lg font-semibold">Acciones sugeridas por dominio prioritario</h2>
+          <h2 className="flex items-center gap-2 text-lg font-semibold">Acciones sugeridas por dominio prioritario<Help id="pr.sugeridas" /></h2>
           <p className="text-sm text-gray-500">Dominios en nivel medio o superior. Agrega una sugerencia con un clic (fecha compromiso a 90 días; puedes editarla después eliminando y volviendo a crear).</p>
           {priority.map((d) => (
             <div key={d.name} className="rounded-lg border border-gray-200 p-3">
@@ -77,7 +78,7 @@ export default async function ProgramPage({ params }: { params: Promise<{ id: st
 
       <section className="card overflow-x-auto">
         <div className="flex flex-wrap items-center justify-between gap-3 px-5 pt-4">
-          <div><h2 className="text-lg font-semibold">Acciones del programa</h2><p className="text-sm text-gray-500">{actions.length} acciones · {actions.filter((a) => a.doneAt).length} concluidas · {actions.filter((a) => !a.doneAt && a.dueDate < today).length} vencidas</p></div>
+          <div><h2 className="flex items-center gap-2 text-lg font-semibold">Acciones del programa<Help id="pr.acciones" /></h2><p className="text-sm text-gray-500">{actions.length} acciones · {actions.filter((a) => a.doneAt).length} concluidas · {actions.filter((a) => !a.doneAt && a.dueDate < today).length} vencidas</p></div>
           {edit && (
             <Drawer trigger="+ Nueva acción" title="Nueva acción" subtitle="Acción de control del programa de intervención">
               <form action={addAction} className="space-y-4">
@@ -149,7 +150,7 @@ function Gantt({ actions, today }: { actions: { id: string; action: string; doma
   return (
     <section className="card p-5">
       <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
-        <div><h2 className="text-lg font-semibold">Cronograma</h2><p className="text-sm text-gray-500">Cada barra va de la fecha de alta a la fecha compromiso; el rombo marca la conclusión.</p></div>
+        <div><h2 className="flex items-center gap-2 text-lg font-semibold">Cronograma<Help id="pr.cronograma" /></h2><p className="text-sm text-gray-500">Cada barra va de la fecha de alta a la fecha compromiso; el rombo marca la conclusión.</p></div>
         <div className="flex flex-wrap gap-3 text-xs text-gray-600">
           {[["var(--brand)", "En curso"], ["var(--risk-0)", "A tiempo"], ["var(--lv-medio)", "Con retraso"], ["var(--lv-muyalto)", "Vencida"]].map(([col, l]) =>
             <span key={l} className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: col }} />{l}</span>)}

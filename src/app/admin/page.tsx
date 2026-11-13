@@ -1,3 +1,4 @@
+import Help from "@/components/ui/Help";
 import { eq, inArray, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { canEdit, requireUser } from "@/lib/auth";
@@ -68,18 +69,18 @@ export default async function CompaniesPage() {
     ats: rows.reduce((t, r) => t + r.atsPend, 0), criticas: alerts.filter((a) => a.severity === "CRITICA").length,
   };
   const tiles = [
-    ["Empresas", tot.empresas, `${tot.centros} centros de trabajo`, ""],
-    ["Respuestas", tot.respuestas.toLocaleString("es-MX"), "en la última evaluación de cada centro", ""],
-    ["Capturas abiertas", tot.abiertas, "evaluaciones recibiendo respuestas", ""],
-    ["Guía I sin canalizar", tot.ats, "casos que requieren valoración", tot.ats ? "text-red-600" : ""],
-    ["Alertas críticas", tot.criticas, "requieren atención hoy", tot.criticas ? "text-red-600" : ""],
+    ["Empresas", tot.empresas, `${tot.centros} centros de trabajo`, "", "cartera.empresas"],
+    ["Respuestas", tot.respuestas.toLocaleString("es-MX"), "en la última evaluación de cada centro", "", "cartera.respuestas"],
+    ["Capturas abiertas", tot.abiertas, "evaluaciones recibiendo respuestas", "", "cartera.capturas"],
+    ["Guía I sin canalizar", tot.ats, "casos que requieren valoración", tot.ats ? "text-red-600" : "", "cartera.guia1"],
+    ["Alertas críticas", tot.criticas, "requieren atención hoy", tot.criticas ? "text-red-600" : "", "cartera.criticas"],
   ] as const;
 
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-ink">{s.role === "CLIENTE" ? "Mi empresa" : "Cartera de clientes"}</h1>
+          <h1 className="flex items-center gap-2 text-2xl font-semibold text-ink">{s.role === "CLIENTE" ? "Mi empresa" : "Cartera de clientes"}<Help id="cartera" /></h1>
           <p className="text-sm text-gray-500">Resultado más reciente, avance de la captura, casos de Guía I y alertas de cada empresa.</p>
         </div>
         {canEdit(s) && (
@@ -97,9 +98,9 @@ export default async function CompaniesPage() {
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-        {tiles.map(([l, v, d, tone]) => (
+        {tiles.map(([l, v, d, tone, h]) => (
           <div key={l} className="card p-4">
-            <div className="text-xs font-medium text-gray-500">{l}</div>
+            <div className="flex items-center justify-between gap-1 text-xs font-medium text-gray-500">{l}<Help id={h} /></div>
             <div className={`mt-1 text-2xl font-semibold tabular-nums text-ink ${tone}`}>{v}</div>
             <div className="text-[11px] text-gray-500">{d}</div>
           </div>

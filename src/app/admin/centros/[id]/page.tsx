@@ -1,3 +1,4 @@
+import Help from "@/components/ui/Help";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { desc, eq } from "drizzle-orm";
@@ -55,7 +56,7 @@ export default async function WorkplacePage({ params, searchParams }: { params: 
             <Link href="/admin" className="hover:text-gray-900">Empresas</Link><span aria-hidden>›</span>
             <Link href={`/admin/empresas/${wp.companyId}`} className="hover:text-gray-900">{wp.company.name}</Link><span aria-hidden>›</span><span>{wp.name}</span>
           </nav>
-          <h1 className="text-2xl font-semibold tracking-tight">Gestión preventiva · {wp.name}</h1>
+          <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">Gestión preventiva · {wp.name}<Help id="mod.gestion" /></h1>
           <p className="max-w-3xl text-sm text-gray-500">{intro}</p>
         </div>
       )}
@@ -75,7 +76,7 @@ export default async function WorkplacePage({ params, searchParams }: { params: 
 
       {sec === "plantilla" && <section className="card space-y-4 p-5">
         <div className="flex flex-wrap items-end justify-between gap-3">
-          <div><h2 className="text-lg font-semibold">Plantilla por área</h2>
+          <div><h2 className="flex items-center gap-2 text-lg font-semibold">Plantilla por área<Help id="ge.plantilla" /></h2>
             <p className="text-sm text-gray-500">Número de trabajadores de cada área. Permite medir la participación y representatividad por área y calcular exacta la cobertura de capacitación. Se captura al crear cada evaluación; aquí puede corregirla entre evaluaciones (las evaluaciones abiertas toman el cambio).</p></div>
           <div className="text-sm"><div className="text-xs text-gray-500">Suma de áreas / plantilla del centro</div>
             <div className={`text-xl font-bold tabular-nums ${areaTotal && areaTotal !== wp.headcount ? "text-amber-600" : ""}`}>{areaTotal} / {wp.headcount}</div></div>
@@ -106,7 +107,7 @@ export default async function WorkplacePage({ params, searchParams }: { params: 
 
       {sec === "quejas" && <section className="card space-y-4 p-5">
         <div className="flex flex-wrap items-end justify-between gap-3">
-          <div><h2 className="text-lg font-semibold">Buzón de quejas</h2>
+          <div><h2 className="flex items-center gap-2 text-lg font-semibold">Buzón de quejas<Help id="ge.quejas" /></h2>
             <p className="text-sm text-gray-500">Mecanismo seguro y confidencial para recibir quejas por prácticas opuestas al entorno favorable y actos de violencia (numeral 8.1 b). No se registra la identidad de quien se queja.</p></div>
           <div className="flex gap-6 text-sm">
             <div><div className="text-xs text-gray-500">Abiertas</div><div className="text-xl font-bold tabular-nums">{open.length}</div></div>
@@ -167,7 +168,7 @@ export default async function WorkplacePage({ params, searchParams }: { params: 
 
       {sec === "capacitacion" && <section className="card space-y-4 p-5">
         <div className="flex flex-wrap items-end justify-between gap-3">
-          <div><h2 className="text-lg font-semibold">Capacitación y sensibilización</h2>
+          <div><h2 className="flex items-center gap-2 text-lg font-semibold">Capacitación y sensibilización<Help id="ge.capacitacion" /></h2>
             <p className="text-sm text-gray-500">Registra cada sesión con su evaluación diagnóstica y final (0–100) para medir la ganancia de aprendizaje.</p></div>
           <div className="flex gap-6 text-sm">
             <div><div className="text-xs text-gray-500">Sesiones</div><div className="text-xl font-bold tabular-nums">{trainings.length}</div></div>
