@@ -4,6 +4,7 @@ import { GUIDES, LEVELS, LEVEL_ACTION, LEVEL_LABEL, itemsOfDomain, type GuideId,
 import { aggregate, sampleSize, scoreWorker, type ScoreResult } from "@/lib/nom035/score";
 import { INTERVENTIONS, GUIA_I_ACTION } from "@/lib/nom035/interventions";
 import ItemSheet from "./ItemSheet";
+import { AgePyramid, GroupForest, Trend, exportDashboard } from "./insights";
 import { AtsFunnel, CorrelationMatrix, DemandControl, FinalHistogram, ItemPareto, Sparkline, Waterfall } from "./advanced";
 import { meanChange, meanMoe, wilson } from "@/lib/nom035/stats";
 import { computeKpis, DIM_NAMES, type InterventionData, type Kpi, type Light } from "@/lib/nom035/kpis";
@@ -121,9 +122,15 @@ function DashboardInner({ evaluation: ev, records, previous, intervention, areaH
     return null;
   })();
 
+  const kpiArgs = () => ({ guide: ev.guide, records: fRecs, minGroup, headcount: ev.headcount, intervention, areaHeadcount, population,
+    prevRecords: previous.find((p) => p.id === compareId)?.records.filter((r) => match(r)) });
+  const filterText = Object.entries(filters).filter(([, v]) => v.length).map(([k, v]) => `${dimensions.find((d) => d.key === k)?.label ?? k}: ${v.join(", ")}`).join(" · ");
+  const onExport = () => exportDashboard({ guide: ev.guide, name: ev.name, recs: fRecs, scores: fScores, kpis: computeKpis(kpiArgs()), dimensions, minGroup, filters: filterText });
+  const trend = [...previous].reverse().map((p) => ({ name: p.name, recs: p.records.filter((r) => match(r)) })).concat([{ name: ev.name, recs: fRecs }]);
+
   return (
     <div className="space-y-4">
-      <FilterBar dimensions={dimensions} records={records} filters={filters} match={match} toggle={toggle}
+      <FilterBar onExport={enough ? onExport : undefined} dimensions={dimensions} records={records} filters={filters} match={match} toggle={toggle}
         clear={(k) => setFilters((f) => (k ? { ...f, [k]: [] } : {}))} n={n} total={records.length}
         previous={previous} compareId={compareId} setCompareId={setCompareId} />
 
@@ -142,7 +149,7 @@ function DashboardInner({ evaluation: ev, records, previous, intervention, areaH
         <Empty>La selección tiene {n} {n === 1 ? "respuesta" : "respuestas"}. Para proteger la confidencialidad se requieren al menos {minGroup}. Quita algún filtro.</Empty>
       ) : (
         <>
-          {tab === "resumen" && <Resumen {...{ ev, g, agg, n, prev, fRecs, fScores, maxDomain, maxCat, itemMap, setTab, filtered, records, areaHeadcount, minGroup, setOnly, population, onOpen: setSheet }} />}
+          {tab === "resumen" && <Resumen {...{ ev, g, agg, n, prev, fRecs, fScores, maxDomain, maxCat, itemMap, setTab, filtered, records, areaHeadcount, minGroup, setOnly, population, onOpen: setSheet, trend }} />}
           {tab === "kpis" && <Kpis kpis={computeKpis({ guide: ev.guide, records: fRecs, minGroup, headcount: ev.headcount, intervention, areaHeadcount, population,
             prevRecords: previous.find((p) => p.id === compareId)?.records.filter((r) => match(r)) })} filtered={filtered} hasPrev={!!compareId}
             history={(() => {
@@ -157,7 +164,9 @@ function DashboardInner({ evaluation: ev, records, previous, intervention, areaH
           {tab === "grupos" && <Grupos {...{ ev, g, dimensions, fRecs, fScores, minGroup, setOnly, maxDomain }} />}
           {tab === "reactivos" && <Reactivos {...{ g, fRecs, itemMap, onOpen: setSheet }} />}
           {tab === "guia1" && <GuiaI {...{ ev, fRecs, dimensions, minGroup, canSeeConfidential, ats: intervention.ats }} />}
-          {tab === "perfil" && <><Participation records={records} scores={scores} guide={ev.guide} areaHeadcount={areaHeadcount} minGroup={minGroup} /><Perfil {...{ dimensions, fRecs, filters, toggle }} /></>}
+          {tab === "perfil" && <><Participation records={records} scores={scores} guide={ev.guide} areaHeadcount={areaHeadcount} minGroup={minGroup} />
+            <Panel title="Pirámide de edad por sexo" subtitle="Cuántos trabajadores hay en cada grupo de edad y cuántos están en riesgo alto"><AgePyramid recs={fRecs} scores={fScores} onPick={toggle} /></Panel>
+            <Perfil {...{ dimensions, fRecs, filters, toggle }} /></>}
           {tab === "plan" && <Plan {...{ ev, g, agg, n, fRecs, maxDomain }} />}
           {sheet && sheet <= g.items && (() => {
             const ranked = topItems(g, fRecs, itemMap);
@@ -177,7 +186,8 @@ function DashboardInner({ evaluation: ev, records, previous, intervention, areaH
 }
 
 /* ================= Barra de filtros ================= */
-function FilterBar({ dimensions, records, filters, match, toggle, clear, n, total, previous, compareId, setCompareId }: {
+function FilterBar({ dimensions, records, filters, match, toggle, clear, n, total, previous, compareId, setCompareId, onExport }: {
+  onExport?: () => void;
   dimensions: { key: string; label: string }[]; records: Rec[]; filters: Filters; match: (r: Rec, skip?: string) => boolean;
   toggle: (k: string, v: string) => void; clear: (k?: string) => void; n: number; total: number;
   previous: PrevRaw[]; compareId: string; setCompareId: (s: string) => void;
@@ -240,6 +250,7 @@ function FilterBar({ dimensions, records, filters, match, toggle, clear, n, tota
             </label>
           )}
           <span className="text-gray-600"><b className="tabular-nums text-gray-900">{n}</b> de {total} respuestas</span>
+          {onExport && <button type="button" onClick={onExport} className="no-print rounded-lg border border-gray-300 px-2.5 py-1 text-sm font-medium text-gray-700 hover:bg-gray-50" title="Descarga resumen, grupos, reactivos y KPIs con los filtros actuales">Exportar a Excel</button>}
         </div>
       </div>
       {chips.length > 0 && (
@@ -294,7 +305,8 @@ type AggT = ReturnType<typeof aggregate>;
 type GuideT = (typeof GUIDES)[GuideId];
 
 /* ================= Resumen ================= */
-function Resumen({ ev, g, agg, n, prev, fRecs, fScores, maxDomain, itemMap, setTab, filtered, records, areaHeadcount, minGroup, setOnly, population, onOpen }: {
+function Resumen({ ev, g, agg, n, prev, fRecs, fScores, maxDomain, itemMap, setTab, filtered, records, areaHeadcount, minGroup, setOnly, population, onOpen, trend }: {
+  trend: { name: string; recs: Rec[] }[];
   ev: Props["evaluation"]; g: GuideT; agg: AggT; n: number; prev?: Prev; fRecs: Rec[]; fScores: ScoreResult[];
   maxDomain: Record<string, number>; maxCat: Record<string, number>; itemMap: Record<number, { domain: string; category: string }>;
   setTab: (t: TabId) => void; filtered: boolean; records: Rec[]; areaHeadcount: Record<string, number>; minGroup: number; onOpen: (n: number) => void;
@@ -371,6 +383,12 @@ function Resumen({ ev, g, agg, n, prev, fRecs, fScores, maxDomain, itemMap, setT
         </Panel>
       </div>
 
+      {trend.filter((t) => t.recs.length >= minGroup).length >= 2 && (
+        <Panel title="Evolución entre evaluaciones" subtitle="Mismo centro y mismos filtros en cada periodo; pase el cursor para ver el detalle">
+          <Trend guide={ev.guide} periods={trend} headcount={population ?? ev.headcount} />
+        </Panel>
+      )}
+
       <Priority fRecs={fRecs} fScores={fScores} areaHeadcount={areaHeadcount} headcount={ev.headcount} total={records.length} minGroup={minGroup} onPick={(a) => setOnly("departamento", a)} />
 
       <Panel title="Reactivos con mayor riesgo" subtitle="Ordenados por puntos promedio · barra: respuestas según su riesgo" right={<RiskLegend />}>
@@ -433,7 +451,7 @@ function Grupos({ ev, g, dimensions, fRecs, fScores, minGroup, setOnly, maxDomai
   const [dim, setDim] = useState(usable[0]?.key ?? "departamento");
   const [level, setLevel] = useState<"categorias" | "dominios">("categorias");
   const [sort, setSort] = useState<"riesgo" | "nombre" | "n">("riesgo");
-  const { show, hide } = useTip();
+
   if (!usable.length) return <Empty>Todos los trabajadores seleccionados comparten los mismos datos generales; no hay grupos que comparar.</Empty>;
   const d = usable.some((u) => u.key === dim) ? dim : usable[0].key;
   const groups: Record<string, ScoreResult[]> = {};
@@ -442,8 +460,6 @@ function Grupos({ ev, g, dimensions, fRecs, fScores, minGroup, setOnly, maxDomai
   rows = sort === "nombre" ? rows.sort((a, b) => a.name.localeCompare(b.name, "es")) : sort === "n" ? rows.sort((a, b) => b.n - a.n)
     : rows.sort((a, b) => (a.hidden ? 1 : 0) - (b.hidden ? 1 : 0) || b.agg.final.mean - a.agg.final.mean);
   const cols = level === "categorias" ? Object.keys(g.categories) : Object.keys(g.domains);
-  const vis = rows.filter((r) => !r.hidden);
-  const maxFinal = Math.max(g.finalCuts[3] * 1.15, ...vis.map((r) => r.agg.final.mean));
   const label = dimensions.find((x) => x.key === d)?.label ?? d;
 
   return (
@@ -458,23 +474,9 @@ function Grupos({ ev, g, dimensions, fRecs, fScores, minGroup, setOnly, maxDomai
         <p className="text-xs text-gray-500 md:ml-auto">Grupos con menos de {minGroup} respuestas se ocultan. Clic en un grupo para filtrar todo el tablero.</p>
       </div>
 
-      <Panel title={`Calificación final por ${label.toLowerCase()}`} subtitle="Línea vertical: corte de nivel alto según la norma">
-        <div className="space-y-1.5">
-          {rows.map((r) => (
-            <button key={r.name} type="button" disabled={r.hidden} onClick={() => setOnly(d, r.name)}
-              className="grid w-full grid-cols-[minmax(0,12rem)_1fr_7rem] items-center gap-3 rounded px-1 py-0.5 text-left text-sm hover:bg-gray-50 disabled:cursor-not-allowed"
-              onMouseMove={(e) => !r.hidden && show(e, <><b>{r.name}</b> · n={r.n}<br />Final {fmt1(r.agg.final.mean)} ({LEVEL_LABEL[r.agg.final.level]})<br />Alto+: {pct(r.agg.final.distribution.ALTO + r.agg.final.distribution.MUY_ALTO, r.n)}%</>)} onMouseLeave={hide}>
-              <span className="truncate text-gray-800">{r.name} <span className="text-xs text-gray-400">n={r.n}</span></span>
-              {r.hidden ? <span className="text-xs text-gray-400">Grupo pequeño — oculto</span> : (
-                <span className="relative block h-5">
-                  <span className="absolute inset-y-0 left-0 rounded-r" style={{ width: `${(r.agg.final.mean / maxFinal) * 100}%`, background: LEVEL_HEX[r.agg.final.level] }} />
-                  <span className="absolute inset-y-[-3px] w-px bg-gray-800" style={{ left: `${(g.finalCuts[2] / maxFinal) * 100}%` }} />
-                </span>
-              )}
-              <span className="text-right tabular-nums">{r.hidden ? "" : <><b>{fmt1(r.agg.final.mean)}</b> <span className="text-xs text-gray-500">{LEVEL_LABEL[r.agg.final.level]}</span></>}</span>
-            </button>
-          ))}
-        </div>
+      <Panel title={`Calificación final por ${label.toLowerCase()}`} subtitle="Punto: promedio del grupo · línea: margen de error al 95% · barra derecha: composición por nivel. Clic en un grupo para filtrar">
+        <GroupForest guide={ev.guide} label={label} onPick={(v) => setOnly(d, v)} overall={fScores.reduce((t, x) => t + x.final, 0) / (fScores.length || 1)}
+          rows={rows.map((r) => ({ name: r.name, n: r.n, hidden: r.hidden, scores: groups[r.name] }))} />
       </Panel>
 
       <Panel title={`Mapa de calor: ${level === "categorias" ? "categorías" : "dominios"} por ${label.toLowerCase()}`} subtitle="Calificación promedio coloreada por nivel de riesgo">

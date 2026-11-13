@@ -25,7 +25,7 @@ export default function Importer({ evaluationId, guide, existing = 0, name, depa
     const ins = XLSX.utils.aoa_to_sheet(instructions);
     ins["!cols"] = [{ wch: 70 }, { wch: 90 }];
     XLSX.utils.book_append_sheet(wb, ins, "Instrucciones");
-    const safe = name.replace(/[^\p{L}\p{N} _-]/gu, "").trim().replace(/\s+/g, "_") || "evaluacion";
+    const safe = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Za-z0-9 _-]/g, "").trim().replace(/\s+/g, "_") || "evaluacion";
     const data = XLSX.write(wb, { type: "array", bookType: "xlsx" });
     const url = URL.createObjectURL(new Blob([data], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
     const a = document.createElement("a");
