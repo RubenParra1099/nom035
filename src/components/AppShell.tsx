@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { Logo } from "./Logo";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import ThemeToggle from "./ThemeToggle";
@@ -31,10 +32,7 @@ export default function AppShell({ user, role, isAdmin, alerts, logout, children
   const initials = user.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
   const side = (
     <div className="flex h-full flex-col gap-6 p-4">
-      <Link href="/admin" className="flex items-center gap-2.5 px-1">
-        <span className="grid h-9 w-9 place-items-center rounded-lg bg-brand-600 text-sm font-bold text-white">035</span>
-        <span className="leading-tight"><span className="block text-sm font-semibold text-ink">NOM-035</span><span className="block text-xs text-gray-500">Riesgo psicosocial</span></span>
-      </Link>
+      <Link href="/admin" className="px-1" aria-label="NOM-035 · inicio"><Logo size={38} /></Link>
       <nav className="flex flex-col gap-1" aria-label="Principal">
         {items.map((it) => {
           const on = it.match(path);
@@ -61,7 +59,7 @@ export default function AppShell({ user, role, isAdmin, alerts, logout, children
     <div className="min-h-screen lg:grid lg:grid-cols-[248px_minmax(0,1fr)]">
       <aside className="sticky top-0 hidden h-screen border-r border-line bg-surface lg:block print:hidden">{side}</aside>
       <header className="sticky top-0 z-30 flex items-center justify-between border-b border-line bg-surface px-4 py-2.5 lg:hidden print:hidden">
-        <Link href="/admin" className="text-sm font-semibold text-ink">NOM-035</Link>
+        <Link href="/admin" aria-label="NOM-035 · inicio"><Logo size={30} sub="" /></Link>
         {alerts > 0 && <Link href="/admin/alertas" className="ml-auto mr-2 rounded-full px-2 py-0.5 text-xs font-bold" style={{ background: "var(--lv-muyalto)", color: "var(--lv-muyalto-ink)" }}>{alerts} alertas</Link>}
         <button aria-label="Abrir menú" onClick={() => setOpen(true)} className="rounded-lg p-2 text-gray-600 hover:bg-gray-100">{I.menu}</button>
       </header>

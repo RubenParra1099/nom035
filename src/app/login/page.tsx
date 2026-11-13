@@ -1,15 +1,16 @@
 "use client";
 import { useActionState } from "react";
 import { login } from "./actions";
+import { Logo } from "@/components/Logo";
 
 export default function LoginPage() {
   const [state, action, pending] = useActionState(login, null);
   return (
     <main className="flex min-h-screen items-center justify-center p-4">
       <form action={action} className="card w-full max-w-sm space-y-4 p-6">
-        <div>
-          <div className="text-xs font-semibold uppercase tracking-wider text-brand-600">NOM-035-STPS-2018</div>
-          <h1 className="text-xl font-semibold">Iniciar sesión</h1>
+        <div className="space-y-4">
+          <Logo size={44} />
+          <h1 className="border-t border-line pt-4 text-xl font-semibold">Iniciar sesión</h1>
         </div>
         <div>
           <label className="label" htmlFor="email">Correo</label>
