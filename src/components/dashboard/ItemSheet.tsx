@@ -1,4 +1,5 @@
 "use client";
+import { LogoMark } from "@/components/Logo";
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { ANSWERS, GUIDES, LEVEL_LABEL, type GuideId, type Level } from "@/lib/nom035/guides";
@@ -101,8 +102,8 @@ export default function ItemSheet({
       <button className="sheet-backdrop absolute inset-0 bg-black/40" aria-label="Cerrar" onClick={onClose} />
       <div className="sheet-panel relative flex h-full w-full max-w-3xl flex-col overflow-hidden bg-bg shadow-2xl">
         <div className="sheet-head border-b border-line bg-surface px-5 py-4">
-          <div className="sheet-print-only mb-3 hidden items-end justify-between border-b border-line pb-2 text-[11px] text-gray-600">
-            <div><b className="text-gray-900">{context.title}</b>{context.filters && <div>Filtros: {context.filters}</div>}</div>
+          <div className="sheet-print-only mb-3 hidden items-center justify-between gap-4 border-b border-line pb-2 text-[11px] text-gray-600">
+            <div className="flex items-center gap-3"><LogoMark size={34} /><div><b className="text-gray-900">{context.title}</b>{context.filters && <div>Filtros: {context.filters}</div>}</div></div>
             <div className="text-right">NOM-035-STPS-2018 · {g.name}<div>Impreso el {new Date().toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" })}</div></div>
           </div>
           <div className="flex items-start justify-between gap-3">

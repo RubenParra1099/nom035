@@ -1,4 +1,5 @@
 "use client";
+import { LogoMark } from "@/components/Logo";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import { ANSWERS, G2_TO_G3, GUIDES, itemsOfDomain, type GuideId } from "@/lib/nom035/guides";
@@ -294,9 +295,12 @@ function PrintView({ tab, gid, withDemo, withG1 }: { tab: Tab; gid: GuideId | nu
   return (
     <div className="report-paper mx-auto max-w-[8.5in] rounded-xl border border-line bg-white p-8 text-[12px] text-gray-900 shadow-sm print:max-w-none print:rounded-none print:border-0 print:p-0 print:shadow-none">
       <div className="flex items-start justify-between gap-4 border-b border-gray-300 pb-3">
-        <div>
+        <div className="flex items-center gap-3">
+          <LogoMark size={40} />
+          <div>
           <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">NOM-035-STPS-2018</div>
           <div className="text-lg font-semibold">{tab === "I" ? "Guía de Referencia I · Acontecimientos traumáticos severos" : g!.name}</div>
+          </div>
         </div>
         <div className="text-right text-[11px] text-gray-500">Folio: ________</div>
       </div>

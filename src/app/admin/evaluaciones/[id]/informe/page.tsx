@@ -1,5 +1,5 @@
 import { Fragment } from "react";
-import { LogoMark } from "@/components/Logo";
+import { Logo } from "@/components/Logo";
 import { notFound } from "next/navigation";
 import { asc, eq, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
@@ -131,9 +131,9 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
       <article className="report-paper mx-auto w-full max-w-[216mm] rounded-sm bg-white px-[14mm] py-[14mm] text-gray-900 shadow-lg print:max-w-none print:p-0 print:shadow-none">
         {/* Portada */}
         <section className="flex min-h-[240mm] flex-col print:min-h-[245mm]">
-          <div className="flex items-center gap-3">
-            <LogoMark size={44} />
-            <div className="text-xs uppercase tracking-widest text-gray-500">NOM-035-STPS-2018 · Factores de riesgo psicosocial</div>
+          <div className="flex items-center justify-between gap-4 border-b border-gray-200 pb-4">
+            <Logo size={48} />
+            <div className="text-right text-[10px] uppercase tracking-widest text-gray-500">NOM-035-STPS-2018<br />Factores de riesgo psicosocial</div>
           </div>
           <div className="mt-[45mm]">
             <div className="text-xs font-semibold uppercase tracking-widest text-brand-600">Informe de resultados</div>

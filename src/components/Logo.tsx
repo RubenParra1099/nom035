@@ -27,9 +27,19 @@ export function Logo({ size = 36, sub = "Riesgo psicosocial" }: { size?: number;
     <span className="flex items-center gap-2.5">
       <LogoMark size={size} />
       <span className="leading-tight">
-        <span className="block text-[15px] font-extrabold tracking-tight text-[#0F2A5F] dark:text-white">NOM<span className="text-brand-600 dark:text-[#8FB0F0]">-035</span></span>
-        {sub && <span className="block text-[10.5px] font-semibold uppercase tracking-[.08em] text-gray-500">{sub}</span>}
+        <span className="block text-[15px] font-extrabold tracking-tight text-[#0F2A5F] dark:text-white print:!text-[#0F2A5F]">NOM<span className="text-brand-600 dark:text-[#8FB0F0] print:!text-[#1D4ED8]">-035</span></span>
+        {sub && <span className="block text-[10.5px] font-semibold uppercase tracking-[.08em] text-gray-500 print:!text-gray-600">{sub}</span>}
       </span>
     </span>
+  );
+}
+
+/** Encabezado de marca que solo aparece al imprimir o guardar como PDF. */
+export function PrintHeader({ children }: { children?: React.ReactNode }) {
+  return (
+    <div className="mb-4 hidden items-center justify-between gap-4 border-b border-gray-300 pb-3 print:flex">
+      <Logo size={34} />
+      <div className="text-right text-[10px] leading-snug text-gray-600">{children}</div>
+    </div>
   );
 }

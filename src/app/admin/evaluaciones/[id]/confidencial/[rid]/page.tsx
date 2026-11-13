@@ -1,3 +1,4 @@
+import { PrintHeader } from "@/components/Logo";
 import { Fragment } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -60,6 +61,7 @@ export default async function WorkerSheet({ params }: { params: Promise<{ id: st
 
   return (
     <div className="space-y-4">
+      <PrintHeader>NOM-035-STPS-2018 · Documento confidencial<br />Impreso el {new Date().toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" })}</PrintHeader>
       <div className="no-print flex flex-wrap items-center justify-between gap-2">
         <Link href={back} className="text-sm font-medium text-brand-700 hover:underline">← Seguimiento Guía I</Link>
         <PrintButton />
