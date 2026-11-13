@@ -36,6 +36,13 @@
       "when": 1793328000082,
       "tag": "0004_sector",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1794540142807,
+      "tag": "0005_plantilla_evaluacion",
+      "breakpoints": true
     }
   ]
 }

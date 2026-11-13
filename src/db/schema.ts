@@ -51,6 +51,9 @@ export const evaluations = pgTable("evaluations", {
   token: text("token").notNull(),
   departments: text("departments").array().notNull().default([]),
   positions: text("positions").array().notNull().default([]),
+  /** Foto de la plantilla al crear la evaluación (null = usar la plantilla vigente del centro). */
+  headcount: integer("headcount"),
+  areaHeadcount: jsonb("area_headcount").$type<Record<string, number>>(),
   createdAt: createdAt(),
 }, (t) => [uniqueIndex("evaluations_token_idx").on(t.token)]);
 

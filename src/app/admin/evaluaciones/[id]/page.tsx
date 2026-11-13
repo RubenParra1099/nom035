@@ -33,7 +33,7 @@ export default async function EvaluationPage({ params }: { params: Promise<{ id:
   const base = `${h.get("x-forwarded-proto") ?? "http"}://${h.get("host")}`;
   const url = `${base}/e/${ev.token}`;
   const qr = await QRCode.toDataURL(url, { margin: 1, width: 220 });
-  const N = ev.workplace.headcount;
+  const N = ev.headcount ?? ev.workplace.headcount;
   const target = ev.guide === "GUIA_III" ? sampleSize(N) : N;
   const pct = target ? Math.min(100, Math.round((stats.total / target) * 100)) : 0;
   const rg = requiredGuide(N);

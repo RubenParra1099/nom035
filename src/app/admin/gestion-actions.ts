@@ -1,5 +1,5 @@
 "use server";
-import { and, eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db, schema } from "@/db";
@@ -124,6 +124,10 @@ export async function saveAreas(form: FormData) {
     await db.insert(schema.workplaceAreas).values({ workplaceId, name: r.name, headcount })
       .onConflictDoUpdate({ target: [schema.workplaceAreas.workplaceId, schema.workplaceAreas.name], set: { headcount } });
   }
+  // Las evaluaciones aún no cerradas toman la plantilla corregida.
+  const plantilla = Object.fromEntries((await db.query.workplaceAreas.findMany({ where: eq(schema.workplaceAreas.workplaceId, workplaceId) })).map((a) => [a.name, a.headcount]));
+  await db.update(schema.evaluations).set({ areaHeadcount: Object.keys(plantilla).length ? plantilla : null })
+    .where(and(eq(schema.evaluations.workplaceId, workplaceId), ne(schema.evaluations.status, "CERRADA")));
   await audit(s, "update", "workplace_areas", workplaceId);
   revalidatePath(`/admin/centros/${workplaceId}`);
 }

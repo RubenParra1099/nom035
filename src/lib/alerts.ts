@@ -80,7 +80,7 @@ export async function getAlerts(s: Session): Promise<Alert[]> {
     for (const ev of latest) {
       const rows = await db.query.responses.findMany({ where: eq(schema.responses.evaluationId, ev.id), columns: { items: true, demographics: true, atsRequires: true, atsEvent: true } });
       if (ev.status === "ABIERTA") {
-        const need = ev.guide === "GUIA_III" ? sampleSize(w.headcount) : w.headcount;
+        const need = ev.guide === "GUIA_III" ? sampleSize(ev.headcount ?? w.headcount) : (ev.headcount ?? w.headcount);
         if (need && rows.length < need) out.push({ ...base, severity: "MEDIA", kind: "MUESTRA", href: `/admin/evaluaciones/${ev.id}`, title: `Captura abierta con ${rows.length} de ${need} respuestas requeridas`, detail: `${ev.name} · faltan ${need - rows.length} para la ${ev.guide === "GUIA_III" ? "muestra mínima" : "plantilla"}` });
       }
       if (rows.length < MIN_GROUP) continue;
@@ -89,7 +89,7 @@ export async function getAlerts(s: Session): Promise<Alert[]> {
         it: Array.from({ length: ev.guide === "GUIA_III" ? 72 : 46 }, (_, i) => (r.items as Record<string, number | null>)[i + 1] ?? null),
         g1: (r.atsRequires ? 2 : r.atsEvent ? 1 : 0) as 0 | 1 | 2,
       }));
-      const red = computeKpis({ guide: ev.guide, records: recs, headcount: w.headcount, minGroup: MIN_GROUP }).filter((k) => k.light === "ROJO" && k.scope === "encuesta");
+      const red = computeKpis({ guide: ev.guide, records: recs, headcount: ev.headcount ?? w.headcount, minGroup: MIN_GROUP }).filter((k) => k.light === "ROJO" && k.scope === "encuesta");
       if (red.length) out.push({ ...base, severity: "MEDIA", kind: "KPI", href: `/admin/evaluaciones/${ev.id}/indicadores?tab=kpis`, title: `${red.length} ${red.length === 1 ? "indicador" : "indicadores"} en rojo`, detail: `${ev.name} · ${red.slice(0, 4).map((k) => `${k.short} ${k.display}`).join(" · ")}${red.length > 4 ? "…" : ""}` });
       break; // solo la evaluación más reciente con datos
     }
