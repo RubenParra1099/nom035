@@ -1,6 +1,7 @@
 "use client";
 import { useRef, useState } from "react";
 import Help from "@/components/ui/Help";
+import { LogoMark } from "@/components/Logo";
 
 type Commitment = { id: string; title: string; numeral: string; text: string; tier: string | null };
 const MONTHS = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
@@ -63,7 +64,7 @@ export default function PolicyDoc({ company, workplace, evaluation, result, comm
 
       <article className="report-paper mx-auto w-full max-w-[216mm] rounded-sm bg-white px-[16mm] py-[16mm] text-[13px] leading-relaxed text-gray-900 shadow-lg print:max-w-none print:p-0 print:shadow-none">
         <div ref={doc}>
-          <p className="muted text-[11px] uppercase tracking-widest text-gray-500">{company}{workplace ? ` · ${workplace}` : ""}</p>
+          <div className="mb-2 flex items-center gap-2"><LogoMark size={30} /><p className="muted text-[11px] uppercase tracking-widest text-gray-500">{company}{workplace ? ` · ${workplace}` : ""}</p></div>
           <h1 className="text-[22px] font-bold text-[#0F2A5F]">Política de prevención de riesgos psicosociales</h1>
           <p className="muted text-xs text-gray-500">En cumplimiento de la NOM-035-STPS-2018, Factores de riesgo psicosocial en el trabajo — Identificación, análisis y prevención (numeral 5.1).</p>
 

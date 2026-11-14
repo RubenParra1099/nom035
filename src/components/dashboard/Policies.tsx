@@ -70,7 +70,8 @@ export default function Policies({ recs, evaluationId, canEdit, evaluationName }
             <p className="text-xs text-gray-500">Generadas a partir de los resultados filtrados, alineadas a los numerales 5, 8.1, 8.2 y 8.5 de la NOM-035. Adapte cada una al centro antes de proponerla.</p>
           </div>
           <div className="flex flex-wrap gap-2 print:hidden">
-            <a href={`/admin/evaluaciones/${evaluationId}/politica`} className="btn-primary">Generar política de prevención</a>
+            <a href={`/admin/evaluaciones/${evaluationId}/propuesta`} className="btn-primary">Propuesta de mejora</a>
+            <a href={`/admin/evaluaciones/${evaluationId}/politica`} className="btn-secondary">Generar política de prevención</a>
             <button type="button" className="btn-secondary" onClick={exportCsv}>Exportar a Excel</button>
           </div>
         </div>
