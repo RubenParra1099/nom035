@@ -10,7 +10,7 @@ export type KpiRec = { d: Record<string, string>; it: (number | null)[]; g1: 0 |
 export type InterventionData = {
   complaints: { receivedAt: string; closedAt: string | null; category: string }[];
   trainings: { area: string | null; attendees: number; preScore: number | null; postScore: number | null }[];
-  prevActions: { domain: string }[];
+  prevActions: { domain: string; doneAt?: string | null }[];
   actions: { dueDate: string; doneAt: string | null }[];
   ats: { status: string; identifiedAt: string; canalizedAt: string | null }[];
 };

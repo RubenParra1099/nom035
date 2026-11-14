@@ -162,3 +162,27 @@ export async function addPolicyActions(form: FormData) {
   await audit(s, "create-from-policy", "plan_action", rows[0]?.id);
   revalidatePath(`/admin/evaluaciones/${d.evaluationId}/programa`);
 }
+
+/* ---------- Metas y cumplimiento ---------- */
+export async function saveComplianceMark(input: { evaluationId: string; id: string; done: boolean; note?: string }) {
+  const s = await requireUser(["SUPERADMIN", "CONSULTOR"]);
+  const d = z.object({ evaluationId: z.string(), id: z.enum(["POL", "MED", "QUEJAS", "DIF"]), done: z.boolean(), note: z.string().trim().max(300).optional() }).parse(input);
+  const ev = await db.query.evaluations.findFirst({ where: eq(schema.evaluations.id, d.evaluationId), columns: { compliance: true } });
+  if (!ev) throw new Error("Evaluación no encontrada");
+  const compliance = { ...ev.compliance, [d.id]: { done: d.done, note: d.note || undefined, at: new Date().toISOString().slice(0, 10) } };
+  await db.update(schema.evaluations).set({ compliance }).where(eq(schema.evaluations.id, d.evaluationId));
+  await audit(s, "update-compliance", "evaluation", d.evaluationId);
+  revalidatePath(`/admin/evaluaciones/${d.evaluationId}/indicadores`);
+}
+
+export async function saveKpiTargets(input: { evaluationId: string; targets: Record<string, number | null> }) {
+  const s = await requireUser(["SUPERADMIN", "CONSULTOR"]);
+  const d = z.object({ evaluationId: z.string(), targets: z.record(z.string().regex(/^[A-Z]{2}-\d{2}$/), z.number().finite().min(-1000).max(100000).nullable()) }).parse(input);
+  const ev = await db.query.evaluations.findFirst({ where: eq(schema.evaluations.id, d.evaluationId), columns: { kpiTargets: true } });
+  if (!ev) throw new Error("Evaluación no encontrada");
+  const kpiTargets: Record<string, number> = { ...ev.kpiTargets };
+  for (const [k, v] of Object.entries(d.targets)) { if (v === null) delete kpiTargets[k]; else kpiTargets[k] = v; }
+  await db.update(schema.evaluations).set({ kpiTargets }).where(eq(schema.evaluations.id, d.evaluationId));
+  await audit(s, "update-kpi-targets", "evaluation", d.evaluationId);
+  revalidatePath(`/admin/evaluaciones/${d.evaluationId}/indicadores`);
+}

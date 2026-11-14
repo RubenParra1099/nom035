@@ -50,6 +50,13 @@
       "when": 1794629498465,
       "tag": "0006_estructura_desde_evaluaciones",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1794634716375,
+      "tag": "0007_metas_cumplimiento",
+      "breakpoints": true
     }
   ]
 }

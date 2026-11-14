@@ -1,6 +1,7 @@
 "use client";
 import Help from "@/components/ui/Help";
 import Policies from "./Policies";
+import Goals, { type GoalsData } from "./Goals";
 import { recommendPolicies } from "@/lib/nom035/policies";
 import { HELP, panelHelp, type HelpId } from "@/lib/help";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
@@ -29,6 +30,7 @@ type Props = {
   dimensions: { key: string; label: string }[];
   minGroup: number;
   canSeeConfidential: boolean;
+  goals: GoalsData;
 };
 type Filters = Record<string, string[]>;
 
@@ -42,6 +44,7 @@ const TABS = [
   { id: "guia1", label: "Guía I y entorno físico" },
   { id: "perfil", label: "Perfil de participantes" },
   { id: "politicas", label: "Políticas de mejora" },
+  { id: "metas", label: "Metas y cumplimiento" },
   { id: "plan", label: "Plan de acción" },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
@@ -73,7 +76,7 @@ export default function Dashboard(props: Props) {
   return <TipProvider><DashboardInner {...props} /></TipProvider>;
 }
 
-function DashboardInner({ evaluation: ev, records, previous, intervention, areaHeadcount, dimensions, minGroup, canSeeConfidential }: Props) {
+function DashboardInner({ evaluation: ev, records, previous, intervention, areaHeadcount, dimensions, minGroup, canSeeConfidential, goals }: Props) {
   const g = GUIDES[ev.guide];
   const itemMap = useMemo(() => itemsOfDomain(g), [g]);
   const maxDomain = useMemo(() => Object.fromEntries(Object.entries(g.domains).map(([d, its]) => [d, its.length * 4])), [g]);
@@ -178,6 +181,8 @@ function DashboardInner({ evaluation: ev, records, previous, intervention, areaH
           {tab === "politicas" && <Policies recs={recommendPolicies({ guide: ev.guide, records: fRecs, scores: fScores, headcount: population ?? ev.headcount, kpis: computeKpis(kpiArgs()),
             prevDomains: prev?.domains, atsRequired: fRecs.filter((r) => r.g1 === 2).length, complaints: intervention.complaints.length, minGroup })}
             evaluationId={ev.id} evaluationName={ev.name} canEdit={canSeeConfidential} />}
+          {tab === "metas" && <Goals ev={ev} records={records} scores={scores} fScores={fScores} previous={previous} intervention={intervention} areaHeadcount={areaHeadcount}
+            minGroup={minGroup} goals={goals} canEdit={canSeeConfidential} filtered={filtered} />}
           {tab === "plan" && <Plan {...{ ev, g, agg, n, fRecs, maxDomain }} />}
           {sheet && sheet <= g.items && (() => {
             const ranked = topItems(g, fRecs, itemMap);

@@ -54,6 +54,10 @@ export const evaluations = pgTable("evaluations", {
   /** Foto de la plantilla al crear la evaluación (null = usar la plantilla vigente del centro). */
   headcount: integer("headcount"),
   areaHeadcount: jsonb("area_headcount").$type<Record<string, number>>(),
+  /** Puntos de la lista de cumplimiento NOM-035 marcados manualmente por el consultor. */
+  compliance: jsonb("compliance").$type<Record<string, { done: boolean; note?: string; at?: string }>>().notNull().default({}),
+  /** Metas por KPI fijadas en esta evaluación para el siguiente periodo (id de KPI → valor). */
+  kpiTargets: jsonb("kpi_targets").$type<Record<string, number>>().notNull().default({}),
   createdAt: createdAt(),
 }, (t) => [uniqueIndex("evaluations_token_idx").on(t.token)]);
 

@@ -111,7 +111,7 @@ export async function loadDashboard(evaluationId: string, opts: { folio?: boolea
   const intervention = {
     complaints: complaintRows.map((c) => ({ receivedAt: c.receivedAt, closedAt: c.closedAt, category: c.category })),
     trainings: trainingRows.map((t) => ({ area: t.area, attendees: t.attendees, preScore: t.preScore, postScore: t.postScore })),
-    prevActions: actionRows.filter((a) => a.evaluationId === prevId).map((a) => ({ domain: a.domain })),
+    prevActions: actionRows.filter((a) => a.evaluationId === prevId).map((a) => ({ domain: a.domain, doneAt: a.doneAt })),
     actions: actionRows.filter((a) => a.evaluationId === ev.id).map((a) => ({ dueDate: a.dueDate, doneAt: a.doneAt })),
     ats: atsRows,
   };
@@ -120,8 +120,16 @@ export async function loadDashboard(evaluationId: string, opts: { folio?: boolea
   const areaHeadcount: Record<string, number> = ev.areaHeadcount ?? Object.fromEntries(
     (await db.query.workplaceAreas.findMany({ where: eq(schema.workplaceAreas.workplaceId, ev.workplaceId) })).map((r) => [r.name, r.headcount]));
 
+  // Metas y cumplimiento: marcas manuales, metas fijadas en esta evaluación y las comprometidas en la anterior
+  const prevEv = prevId ? ev.workplace.evaluations.find((e) => e.id === prevId) : undefined;
+  const report = await db.query.evaluationReports.findFirst({ where: eq(schema.evaluationReports.evaluationId, ev.id) });
+  const goals = {
+    compliance: ev.compliance ?? {}, targets: ev.kpiTargets ?? {}, prevTargets: prevEv?.kpiTargets ?? {},
+    reportSaved: !!report?.reportDate || !!report?.conclusions,
+  };
+
   return {
-    intervention, areaHeadcount,
+    intervention, areaHeadcount, goals,
     evaluation: {
       id: ev.id, name: ev.name, guide: ev.guide, includeGuideI: ev.includeGuideI,
       company: ev.workplace.company.name, workplace: ev.workplace.name, headcount: ev.headcount ?? ev.workplace.headcount,

@@ -20,7 +20,7 @@ export default async function IndicatorsPage({ params }: { params: Promise<{ id:
       <PrintHeader>NOM-035-STPS-2018 · Tablero de resultados<br />{ev.company} · {ev.workplace}<br />Impreso el {new Date().toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" })}</PrintHeader>
       <EvalHeader ev={{ id: ev.id, name: ev.name, guide: ev.guide, includeGuideI: ev.includeGuideI, workplaceId: ev.workplaceId, workplaceName: ev.workplace, companyId: ev.companyId, companyName: ev.company }}
         active="tablero" canSeeConfidential={s.role !== "CLIENTE"} title={`Tablero · ${ev.name}`} subtitle={`${ev.company} · ${ev.workplace} · ${GUIDES[ev.guide].name}`} right={<PrintButton />} />
-      <Dashboard evaluation={ev} records={data.records} previous={data.previous} intervention={data.intervention} areaHeadcount={data.areaHeadcount} dimensions={DIMENSIONS}
+      <Dashboard evaluation={ev} records={data.records} previous={data.previous} intervention={data.intervention} areaHeadcount={data.areaHeadcount} dimensions={DIMENSIONS} goals={data.goals}
         minGroup={MIN_GROUP} canSeeConfidential={s.role !== "CLIENTE"} />
     </div>
   );
