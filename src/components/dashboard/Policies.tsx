@@ -69,7 +69,10 @@ export default function Policies({ recs, evaluationId, canEdit, evaluationName }
             <h2 className="flex items-center gap-1.5 text-base font-semibold text-ink">Políticas de mejora recomendadas<Help id="pol" /></h2>
             <p className="text-xs text-gray-500">Generadas a partir de los resultados filtrados, alineadas a los numerales 5, 8.1, 8.2 y 8.5 de la NOM-035. Adapte cada una al centro antes de proponerla.</p>
           </div>
-          <button type="button" className="btn-secondary print:hidden" onClick={exportCsv}>Exportar a Excel</button>
+          <div className="flex flex-wrap gap-2 print:hidden">
+            <a href={`/admin/evaluaciones/${evaluationId}/politica`} className="btn-primary">Generar política de prevención</a>
+            <button type="button" className="btn-secondary" onClick={exportCsv}>Exportar a Excel</button>
+          </div>
         </div>
         <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
           {(Object.keys(TIER_STYLE) as Recommendation["tier"][]).map((t) => (
