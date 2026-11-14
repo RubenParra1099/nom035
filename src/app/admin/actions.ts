@@ -28,6 +28,7 @@ export async function updateCompany(form: FormData) {
   await db.update(schema.companies).set({ name: d.name, rfc: d.rfc ?? null, contact: d.contact ?? null, sector: d.sector ?? null }).where(eq(schema.companies.id, id));
   await audit(s, "update", "company", id);
   revalidatePath(`/admin/empresas/${id}`);
+  revalidatePath("/admin");
 }
 
 export async function deleteCompany(form: FormData) {

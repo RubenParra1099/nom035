@@ -3,9 +3,10 @@ import Help from "@/components/ui/Help";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { LEVEL_LABEL, type Level } from "@/lib/nom035/guides";
+import CompanyActions from "@/components/CompanyActions";
 
 export type PortfolioRow = {
-  id: string; name: string; sector: string | null; rfc: string | null; centros: number; trabajadores: number;
+  id: string; name: string; sector: string | null; rfc: string | null; contact: string | null; centros: number; trabajadores: number;
   evaluaciones: number; openEvals: number; respuestas: number; avance: number | null;
   latest: { name: string; date: string } | null; worstLevel: string | null; hiPct: number | null; meanFinal: number | null;
   atsPend: number; alertsCrit: number; alertsTotal: number;
@@ -17,7 +18,7 @@ const LV: Record<Level, [string, string]> = {
 const RANK = ["NULO", "BAJO", "MEDIO", "ALTO", "MUY_ALTO"];
 type SortKey = "riesgo" | "nombre" | "alertas" | "avance" | "reciente";
 
-export default function Portfolio({ rows }: { rows: PortfolioRow[] }) {
+export default function Portfolio({ rows, canEdit = false, canDelete = false }: { rows: PortfolioRow[]; canEdit?: boolean; canDelete?: boolean }) {
   const [q, setQ] = useState("");
   const [sector, setSector] = useState("");
   const [level, setLevel] = useState("");
@@ -59,10 +60,10 @@ export default function Portfolio({ rows }: { rows: PortfolioRow[] }) {
         <Help id="cartera.tabla" />
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[980px]">
+        <table className="w-full min-w-[1080px]">
           <thead className="border-b border-line bg-surface-2"><tr>
             <th className="th">Empresa</th><th className="th">Centros</th><th className="th">Último resultado</th><th className="th">Alto+</th>
-            <th className="th w-44">Avance de captura</th><th className="th text-center">Guía I</th><th className="th text-center">Alertas</th>
+            <th className="th w-44">Avance de captura</th><th className="th text-center">Guía I</th><th className="th text-center">Alertas</th>{canEdit && <th className="th text-right">Acciones</th>}
           </tr></thead>
           <tbody className="divide-y divide-gray-100">
             {shown.map((r) => (
@@ -93,9 +94,12 @@ export default function Portfolio({ rows }: { rows: PortfolioRow[] }) {
                     {r.alertsCrit > 0 && <span className="rounded-full bg-red-600 px-1.5 text-xs font-bold text-white">{r.alertsCrit}</span>}
                     <span className="text-gray-700">{r.alertsTotal}</span></Link> : <span className="text-gray-400">—</span>}
                 </td>
+                {canEdit && <td className="td whitespace-nowrap text-right">
+                  <CompanyActions compact canDelete={canDelete} c={{ id: r.id, name: r.name, rfc: r.rfc, contact: r.contact, sector: r.sector, centros: r.centros, evaluaciones: r.evaluaciones, respuestas: null }} />
+                </td>}
               </tr>
             ))}
-            {shown.length === 0 && <tr><td colSpan={7} className="td py-8 text-center text-gray-500">{rows.length ? "Ninguna empresa coincide con los filtros." : "Aún no hay empresas. Cree la primera con “+ Nueva empresa”."}</td></tr>}
+            {shown.length === 0 && <tr><td colSpan={canEdit ? 8 : 7} className="td py-8 text-center text-gray-500">{rows.length ? "Ninguna empresa coincide con los filtros." : "Aún no hay empresas. Cree la primera con “+ Nuevo cliente”."}</td></tr>}
           </tbody>
         </table>
       </div>

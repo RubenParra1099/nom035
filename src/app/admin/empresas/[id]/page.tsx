@@ -6,13 +6,12 @@ import { db, schema } from "@/db";
 import { canEdit, canSeeCompany, requireUser } from "@/lib/auth";
 import { sampleSize } from "@/lib/nom035/score";
 import ConfirmButton from "@/components/ConfirmButton";
+import CompanyActions, { CompanyForm, DeleteForm, type CompanyInfo } from "@/components/CompanyActions";
 import EvalCard from "@/components/EvalCard";
-import { SaveButton } from "@/components/ui/forms";
 import { CentroEditor, ImportStructure } from "@/components/structure/CentroEditor";
 import { guideLabel } from "@/lib/nom035/guideLabel";
 import { GUIDES, levelFor } from "@/lib/nom035/guides";
-import { deleteCompany, deleteWorkplace, updateCompany } from "../../actions";
-import { SECTORS } from "@/lib/sectors";
+import { deleteWorkplace } from "../../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -67,6 +66,7 @@ export default async function CompanyPage({ params, searchParams }: {
     trab: wps.reduce((t, w) => t + w.headcount, 0), areas: wps.reduce((t, w) => t + w.areas.length, 0),
     evals: evalIds.length, resp: counts.reduce((t, c) => t + c.n, 0),
   };
+  const info: CompanyInfo = { id: company.id, name: company.name, rfc: company.rfc, contact: company.contact, sector: company.sector, centros: wps.length, evaluaciones: totals.evals, respuestas: totals.resp };
   const gestion = tab === "gestion" && wps.length ? await Promise.all(wps.map(async (w) => {
     const [[c], [t]] = await Promise.all([
       db.select({ n: sql<number>`count(*)::int`, open: sql<number>`count(*) filter (where ${schema.complaints.status} <> 'CERRADA')::int` }).from(schema.complaints).where(eq(schema.complaints.workplaceId, w.id)),
@@ -89,7 +89,10 @@ export default async function CompanyPage({ params, searchParams }: {
           <h1 className="flex items-center gap-2 text-2xl font-semibold text-ink">{company.name}<Help id="empresa" /></h1>
           <p className="text-sm text-gray-500">{[company.sector ?? "Giro sin especificar", company.rfc, `${wps.length} ${wps.length === 1 ? "centro" : "centros"}`, `${totals.trab} trabajadores`, `${totals.areas} áreas`].filter(Boolean).join(" · ")}</p>
         </div>
-        {edit && <CentroEditor companyId={company.id} trigger="+ Agregar centro de trabajo" />}
+        {edit && <div className="flex flex-wrap items-center gap-2">
+          <CompanyActions c={info} canDelete={s.role === "SUPERADMIN"} />
+          <CentroEditor companyId={company.id} trigger="+ Agregar centro de trabajo" />
+        </div>}
       </div>
 
       {q.creado && (
@@ -240,14 +243,7 @@ export default async function CompanyPage({ params, searchParams }: {
       {/* ---------- Datos ---------- */}
       {tab === "datos" && edit && (
         <div className="space-y-5">
-          <form action={updateCompany} className="card grid gap-4 p-5 md:grid-cols-2">
-            <input type="hidden" name="id" value={company.id} />
-            <div className="md:col-span-2"><label className="label">Razón social / nombre</label><input name="name" className="input" defaultValue={company.name} required /></div>
-            <div><label className="label">RFC</label><input name="rfc" className="input" defaultValue={company.rfc ?? ""} /></div>
-            <div><label className="label">Giro o sector</label><select name="sector" className="input" defaultValue={company.sector ?? ""}><option value="">Sin especificar</option>{SECTORS.map((x) => <option key={x}>{x}</option>)}</select></div>
-            <div className="md:col-span-2"><label className="label">Contacto</label><input name="contact" className="input" defaultValue={company.contact ?? ""} /></div>
-            <div className="flex justify-end border-t border-line pt-4 md:col-span-2"><SaveButton>Guardar cambios</SaveButton></div>
-          </form>
+          <section className="card max-w-2xl p-5"><CompanyForm c={info} /></section>
           {s.role === "SUPERADMIN" && (
             <section className="space-y-3 rounded-xl border border-red-200 p-5">
               <h2 className="text-sm font-semibold text-red-700">Zona de riesgo</h2>
@@ -258,10 +254,7 @@ export default async function CompanyPage({ params, searchParams }: {
                   <ConfirmButton className="btn-danger" message={`¿Eliminar el centro "${w.name}" con sus evaluaciones, respuestas, programa, casos de Guía I, quejas y capacitaciones? No se puede deshacer.`}>Eliminar centro</ConfirmButton>
                 </form>
               ))}
-              <form action={deleteCompany} className="pt-1">
-                <input type="hidden" name="id" value={company.id} />
-                <ConfirmButton className="btn-danger" message="¿Eliminar la empresa con todos sus centros, evaluaciones y respuestas? No se puede deshacer.">Eliminar empresa y todos sus datos</ConfirmButton>
-              </form>
+              <div className="max-w-2xl border-t border-red-200 pt-4"><h3 className="mb-3 text-sm font-semibold text-red-700">Eliminar la empresa completa</h3><DeleteForm c={info} /></div>
             </section>
           )}
         </div>

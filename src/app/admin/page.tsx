@@ -51,7 +51,7 @@ export default async function CompaniesPage() {
     }
     const al = alerts.filter((a) => a.company === c.name);
     return {
-      id: c.id, name: c.name, sector: c.sector, rfc: c.rfc, centros: c.workplaces.length,
+      id: c.id, name: c.name, sector: c.sector, rfc: c.rfc, contact: c.contact, centros: c.workplaces.length,
       trabajadores: c.workplaces.reduce((t, w) => t + w.headcount, 0),
       evaluaciones: c.workplaces.reduce((t, w) => t + w.evaluations.length, 0), openEvals,
       respuestas: n, avance: target ? Math.min(100, Math.round((n / target) * 100)) : null,
@@ -94,7 +94,7 @@ export default async function CompaniesPage() {
         ))}
       </div>
 
-      <Portfolio rows={rows} />
+      <Portfolio rows={rows} canEdit={canEdit(s)} canDelete={s.role === "SUPERADMIN"} />
     </div>
   );
 }
