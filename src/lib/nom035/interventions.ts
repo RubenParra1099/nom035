@@ -2,7 +2,7 @@ import { D } from "./guides";
 
 /**
  * Acciones de control sugeridas por dominio, alineadas al numeral 8 de la NOM-035-STPS-2018
- * (8.1 prevención, 8.2 acciones de control, 8.3 niveles de intervención) y a la política de prevención (5.1).
+ * (8.1 prevención, 8.2 acciones por tema, 8.3–8.4 programa de intervención, 8.5 niveles) y a la política de prevención (5.1).
  * Son un punto de partida para el Programa de intervención; el responsable debe adaptarlas al centro de trabajo.
  */
 export const INTERVENTIONS: Record<string, { focus: string; actions: string[]; level: "Primer nivel" | "Segundo nivel" | "Tercer nivel" }> = {
@@ -102,7 +102,7 @@ export const INTERVENTIONS: Record<string, { focus: string; actions: string[]; l
   },
 };
 
-/** Acción obligatoria según el resultado de la Guía I (numeral 7.1 / 8.1 f). */
+/** Acción obligatoria según el resultado de la Guía I (numeral 5.5). */
 export const GUIA_I_ACTION =
   "Canalizar a los trabajadores que requieren valoración clínica a la institución de seguridad social o servicio médico privado, " +
   "y dar seguimiento confidencial hasta su atención.";

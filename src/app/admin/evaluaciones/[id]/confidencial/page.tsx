@@ -53,7 +53,7 @@ export default async function ConfidentialPage({ params, searchParams }: { param
     <div className="space-y-6">
       <EvalHeader ev={{ id: ev.id, name: ev.name, guide: ev.guide, includeGuideI: ev.includeGuideI, workplaceId: ev.workplaceId, workplaceName: ev.workplace.name, companyId: ev.workplace.companyId, companyName: ev.workplace.company.name }}
         active="guia1" canSeeConfidential title="Seguimiento confidencial · Guía I"
-        subtitle="Restringido a administradores y consultores. Canaliza a atención médica o psicológica a quien lo requiera (numerales 5.4 y 8.1); los nombres nunca aparecen en los indicadores." />
+        subtitle="Restringido a administradores y consultores. Canaliza a atención médica o psicológica a quien lo requiera (numeral 5.5); los nombres nunca aparecen en los indicadores." />
 
       <div className="grid gap-4 sm:grid-cols-4">
         <div className="card p-4"><div className="text-xs text-gray-500">Requieren valoración clínica</div><div className="text-2xl font-bold tabular-nums text-red-600">{cases.length}</div></div>

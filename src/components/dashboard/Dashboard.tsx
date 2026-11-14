@@ -1,5 +1,7 @@
 "use client";
 import Help from "@/components/ui/Help";
+import Policies from "./Policies";
+import { recommendPolicies } from "@/lib/nom035/policies";
 import { HELP, panelHelp, type HelpId } from "@/lib/help";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { GUIDES, LEVELS, LEVEL_ACTION, LEVEL_LABEL, itemsOfDomain, type GuideId, type Level } from "@/lib/nom035/guides";
@@ -39,6 +41,7 @@ const TABS = [
   { id: "reactivos", label: "Reactivos" },
   { id: "guia1", label: "Guía I y entorno físico" },
   { id: "perfil", label: "Perfil de participantes" },
+  { id: "politicas", label: "Políticas de mejora" },
   { id: "plan", label: "Plan de acción" },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
@@ -172,6 +175,9 @@ function DashboardInner({ evaluation: ev, records, previous, intervention, areaH
           {tab === "perfil" && <><Participation records={records} scores={scores} guide={ev.guide} areaHeadcount={areaHeadcount} minGroup={minGroup} />
             <Panel title="Pirámide de edad por sexo" subtitle="Cuántos trabajadores hay en cada grupo de edad y cuántos están en riesgo alto"><AgePyramid recs={fRecs} scores={fScores} onPick={toggle} /></Panel>
             <Perfil {...{ dimensions, fRecs, filters, toggle }} /></>}
+          {tab === "politicas" && <Policies recs={recommendPolicies({ guide: ev.guide, records: fRecs, scores: fScores, headcount: population ?? ev.headcount, kpis: computeKpis(kpiArgs()),
+            prevDomains: prev?.domains, atsRequired: fRecs.filter((r) => r.g1 === 2).length, complaints: intervention.complaints.length, minGroup })}
+            evaluationId={ev.id} evaluationName={ev.name} canEdit={canSeeConfidential} />}
           {tab === "plan" && <Plan {...{ ev, g, agg, n, fRecs, maxDomain }} />}
           {sheet && sheet <= g.items && (() => {
             const ranked = topItems(g, fRecs, itemMap);

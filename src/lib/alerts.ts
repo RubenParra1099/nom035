@@ -56,7 +56,7 @@ export async function getAlerts(s: Session): Promise<Alert[]> {
         const list = ats.filter((x) => x.evaluationId === evId);
         const late = list.filter((x) => x.identifiedAt <= daysAgo(15)).length;
         const href = s.role === "CLIENTE" ? `/admin/evaluaciones/${evId}` : `/admin/evaluaciones/${evId}/confidencial`;
-        if (late) out.push({ ...base, severity: "CRITICA", kind: "ATS", href, title: `${late} ${late === 1 ? "caso" : "casos"} de Guía I sin canalizar después de 15 días`, detail: `${evName(evId)} · requieren valoración clínica (numerales 5.4 y 8.1)` });
+        if (late) out.push({ ...base, severity: "CRITICA", kind: "ATS", href, title: `${late} ${late === 1 ? "caso" : "casos"} de Guía I sin canalizar después de 15 días`, detail: `${evName(evId)} · requieren valoración clínica (numeral 5.5)` });
         if (list.length - late) out.push({ ...base, severity: "ALTA", kind: "ATS", href, title: `${list.length - late} ${list.length - late === 1 ? "caso" : "casos"} de Guía I por canalizar`, detail: `${evName(evId)} · identificados hace menos de 15 días` });
       }
 

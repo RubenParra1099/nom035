@@ -21,6 +21,8 @@ export type Kpi = {
   formula: string; frequency: string; source: string; thresholds: string; scope: "encuesta" | "centro";
   /** Margen de error al 95% (misma unidad que el valor) y cambio contra el periodo anterior. */
   n?: number; moe?: number | null; change?: (Change & { unit: string }) | null;
+  /** Dirección deseable y umbrales (verde / amarillo) para proponer metas. */
+  dir?: "lower" | "higher"; green?: number; yellow?: number;
 };
 type Stat = { kind: "prop"; x: number; n: number } | { kind: "mean"; values: number[] };
 
@@ -135,7 +137,7 @@ function computeKpisRaw(opts: {
   const out: Kpi[] = [];
   const push = (k: Omit<Kpi, "light"> & { dir: "lower" | "higher"; g: number; y: number }) => {
     const { dir, g: gg, y, ...rest } = k;
-    out.push({ ...rest, light: light(k.value, dir, gg, y) });
+    out.push({ ...rest, dir, green: gg, yellow: y, light: light(k.value, dir, gg, y) });
   };
   const hasG3 = guide === "GUIA_III";
 

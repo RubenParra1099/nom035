@@ -147,3 +147,18 @@ export async function saveReport(form: FormData) {
   await audit(s, "update", "evaluation_report", evaluationId);
   revalidatePath(`/admin/evaluaciones/${evaluationId}/informe`);
 }
+
+/* ---------- Políticas de mejora → Programa de intervención ---------- */
+export async function addPolicyActions(form: FormData) {
+  const s = await requireUser(["SUPERADMIN", "CONSULTOR"]);
+  const d = z.object({
+    evaluationId: z.string(), domain: z.string().min(2).max(200), area: z.string().max(200).optional(), owner: z.string().max(200).optional(), dueDate: dateStr,
+    actions: z.array(z.string().trim().min(3).max(500)).min(1).max(20),
+  }).parse({
+    evaluationId: form.get("evaluationId"), domain: form.get("domain"), area: opt(form.get("area")), owner: opt(form.get("owner")), dueDate: form.get("dueDate"),
+    actions: form.getAll("action").map(String),
+  });
+  const rows = await db.insert(schema.planActions).values(d.actions.map((action) => ({ evaluationId: d.evaluationId, domain: d.domain, action, area: d.area, owner: d.owner, dueDate: d.dueDate }))).returning();
+  await audit(s, "create-from-policy", "plan_action", rows[0]?.id);
+  revalidatePath(`/admin/evaluaciones/${d.evaluationId}/programa`);
+}

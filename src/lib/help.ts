@@ -8,7 +8,7 @@ export const HELP = {
   "cartera.empresas": { title: "Empresas", text: "Número de empresas registradas y total de centros de trabajo. La NOM-035 se evalúa por centro de trabajo." },
   "cartera.respuestas": { title: "Respuestas", text: "Cuestionarios recibidos en la evaluación más reciente de cada centro de trabajo, sumados para toda la cartera." },
   "cartera.capturas": { title: "Capturas abiertas", text: "Evaluaciones con estado “Abierta”: el enlace del cuestionario acepta respuestas en este momento." },
-  "cartera.guia1": { title: "Guía I sin canalizar", text: "Trabajadores que según la Guía I requieren valoración clínica y cuyo caso aún no se marca como canalizado. La norma pide canalizarlos a atención (numerales 5.4 y 8.1)." },
+  "cartera.guia1": { title: "Guía I sin canalizar", text: "Trabajadores que según la Guía I requieren valoración clínica y cuyo caso aún no se marca como canalizado. La norma pide canalizarlos a atención (numeral 5.5)." },
   "cartera.criticas": { title: "Alertas críticas", text: "Incumplimientos directos de la norma o riesgos para un trabajador: Guía I sin canalizar, quejas de violencia sin atender, etc. Haga clic en “Alertas” del menú para verlas." },
   "cartera.tabla": { title: "Tabla de empresas", text: "Último resultado: el nivel más alto entre las evaluaciones recientes de los centros de la empresa (con al menos 5 respuestas).\nAlto+: porcentaje de trabajadores en nivel alto o muy alto.\nAvance: respuestas recibidas contra la muestra o plantilla requerida." },
 
@@ -52,6 +52,8 @@ export const HELP = {
   "tab.reactivos": { title: "Reactivos", text: "Cada pregunta con su puntaje y respuesta desfavorable. Haga clic en un reactivo para abrir su ficha técnica." },
   "tab.guia1": { title: "Guía I y entorno físico", text: "Resultados de la Guía I por grupo, seguimiento de casos y condiciones físicas del lugar de trabajo." },
   "tab.perfil": { title: "Perfil de participantes", text: "Quiénes respondieron: participación por área contra la plantilla, pirámide de edad y datos sociodemográficos." },
+  "tab.politicas": { title: "Políticas de mejora", text: "Recomendaciones de política, procedimientos, programas y capacitación según los resultados, con el numeral de la NOM-035, la evidencia que las justifica, el indicador a mejorar y su meta. Se pueden pasar al Programa de intervención con un clic." },
+  pol: { title: "Cómo se generan", text: "Obligatorias: lo que la norma exige siempre (política de prevención, canalización de la Guía I, programa de intervención si el nivel es medio o más, mecanismo de quejas).\nPrioridad alta, media o preventiva: según el nivel de cada dominio, el % de personas en alto o muy alto, si empeoró contra el periodo anterior y si sus KPIs están en rojo.\nMeta sugerida: llegar a verde o mejorar 30% en la siguiente evaluación." },
   "tab.plan": { title: "Plan de acción", text: "Criterios de la norma para la toma de acciones según el nivel de riesgo, y los dominios que conviene atender primero." },
   kpis: { title: "Cómo leer los KPIs", text: "KPI mide efectividad; KRI mide riesgo o impacto. El color sigue los umbrales de cada indicador.\n± es el margen de error al 95% (“censo” si respondió todo el personal). La flecha compara con el periodo seleccionado en “Comparar con”." },
 
