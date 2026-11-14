@@ -1,3 +1,4 @@
+import Link from "next/link";
 import Help from "@/components/ui/Help";
 import { eq, inArray, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
@@ -5,9 +6,6 @@ import { canEdit, requireUser } from "@/lib/auth";
 import { getAlerts } from "@/lib/alerts";
 import { GUIDES, levelFor } from "@/lib/nom035/guides";
 import { sampleSize } from "@/lib/nom035/score";
-import { Drawer, SaveButton } from "@/components/ui/forms";
-import { createCompany } from "./actions";
-import { SECTORS } from "@/lib/sectors";
 import Portfolio, { type PortfolioRow } from "./Portfolio";
 
 export const dynamic = "force-dynamic";
@@ -83,18 +81,7 @@ export default async function CompaniesPage() {
           <h1 className="flex items-center gap-2 text-2xl font-semibold text-ink">{s.role === "CLIENTE" ? "Mi empresa" : "Cartera de clientes"}<Help id="cartera" /></h1>
           <p className="text-sm text-gray-500">Resultado más reciente, avance de la captura, casos de Guía I y alertas de cada empresa.</p>
         </div>
-        {canEdit(s) && (
-          <Drawer trigger="+ Nueva empresa" title="Nueva empresa" subtitle="Después agregue sus centros de trabajo.">
-            <form action={createCompany} className="space-y-4">
-              <div><label className="label">Razón social / nombre</label><input name="name" className="input" required minLength={2} /></div>
-              <div><label className="label">RFC</label><input name="rfc" className="input" /></div>
-              <div><label className="label">Contacto</label><input name="contact" className="input" placeholder="Nombre, correo o teléfono" /></div>
-              <div><label className="label">Giro o sector</label><select name="sector" className="input" defaultValue=""><option value="">Sin especificar</option>{SECTORS.map((x) => <option key={x}>{x}</option>)}</select>
-                <p className="mt-1 text-xs text-gray-500">Se usa para comparar contra empresas del mismo sector.</p></div>
-              <div className="flex justify-end border-t border-line pt-4"><SaveButton done="Empresa creada ✓">Crear empresa</SaveButton></div>
-            </form>
-          </Drawer>
-        )}
+        {canEdit(s) && <Link href="/admin/empresas/nueva" className="btn-primary">+ Nuevo cliente</Link>}
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">

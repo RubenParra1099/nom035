@@ -7,7 +7,7 @@ import { canEdit, canSeeCompany, requireUser } from "@/lib/auth";
 import ConfirmButton from "@/components/ConfirmButton";
 import EvalHeader from "@/components/EvalHeader";
 import { Drawer, Pill, SaveButton } from "@/components/ui/forms";
-import { addComplaint, addTraining, deleteComplaint, deleteTraining, saveAreas, updateComplaint } from "../../gestion-actions";
+import { addComplaint, addTraining, deleteComplaint, deleteTraining, updateComplaint } from "../../gestion-actions";
 
 const CAT = { VIOLENCIA: "Violencia laboral", ENTORNO: "Entorno organizacional", CARGA: "Carga / jornada", OTRO: "Otro" } as const;
 const TOPIC = { POLITICA: "Política de prevención", VIOLENCIA: "Violencia laboral", LIDERAZGO: "Liderazgo", CARGA: "Carga y organización", OTRO: "Otro" } as const;
@@ -32,7 +32,6 @@ export default async function WorkplacePage({ params, searchParams }: { params: 
   ]);
   const today = new Date().toISOString().slice(0, 10);
   const areas = [...new Set([...wp.evaluations.flatMap((e) => e.departments), ...areaRows.map((a) => a.name)])].sort((a, b) => a.localeCompare(b, "es"));
-  const hcOf = (a: string) => areaRows.find((r) => r.name === a)?.headcount;
   const areaTotal = areaRows.reduce((t, a) => t + a.headcount, 0);
   const open = complaints.filter((c) => c.status !== "CERRADA");
   const closed = complaints.filter((c) => c.closedAt);
@@ -77,32 +76,14 @@ export default async function WorkplacePage({ params, searchParams }: { params: 
       {sec === "plantilla" && <section className="card space-y-4 p-5">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div><h2 className="flex items-center gap-2 text-lg font-semibold">Plantilla por área<Help id="ge.plantilla" /></h2>
-            <p className="text-sm text-gray-500">Número de trabajadores de cada área. Permite medir la participación y representatividad por área y calcular exacta la cobertura de capacitación. Se captura al crear cada evaluación; aquí puede corregirla entre evaluaciones (las evaluaciones abiertas toman el cambio).</p></div>
+            <p className="text-sm text-gray-500">Número de trabajadores de cada área, tomado de la Estructura de la empresa. Permite medir la participación y representatividad por área y la cobertura de capacitación.</p></div>
           <div className="text-sm"><div className="text-xs text-gray-500">Suma de áreas / plantilla del centro</div>
             <div className={`text-xl font-bold tabular-nums ${areaTotal && areaTotal !== wp.headcount ? "text-amber-600" : ""}`}>{areaTotal} / {wp.headcount}</div></div>
         </div>
-        {edit ? (
-          <form action={saveAreas} className="space-y-3">
-            <input type="hidden" name="workplaceId" value={id} />
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {areas.map((a) => (
-                <label key={a} className="flex items-center justify-between gap-3 rounded-lg border border-line px-3 py-2 text-sm">
-                  <span className="truncate">{a}</span>
-                  <input type="hidden" name="areaName" value={a} />
-                  <input type="number" min={0} name="areaHeadcount" defaultValue={hcOf(a) ?? ""} placeholder="—" className="w-24 rounded border border-gray-300 bg-surface px-2 py-1 text-right text-sm tabular-nums" />
-                </label>
-              ))}
-            </div>
-            <div className="flex flex-wrap items-end gap-3">
-              <div><label className="label">Otra área</label><input name="newArea" className="input w-56" placeholder="Nombre del área" /></div>
-              <div><label className="label">Trabajadores</label><input type="number" min={0} name="newHeadcount" className="input w-32" /></div>
-              <SaveButton>Guardar plantilla</SaveButton>
-            </div>
-            {areaTotal > 0 && areaTotal !== wp.headcount && <p className="text-xs text-amber-700">La suma de las áreas no coincide con la plantilla del centro ({wp.headcount}). Revisa que estén todas las áreas.</p>}
-          </form>
-        ) : (
-          <ul className="grid gap-2 text-sm sm:grid-cols-3">{areaRows.map((a) => <li key={a.id} className="flex justify-between rounded border border-line px-3 py-2"><span>{a.name}</span><b className="tabular-nums">{a.headcount}</b></li>)}</ul>
-        )}
+        {areaRows.length ? (
+          <ul className="grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-3">{[...areaRows].sort((x, y) => y.headcount - x.headcount).map((a) => <li key={a.id} className="flex justify-between rounded-lg border border-line px-3 py-2"><span>{a.name}</span><b className="tabular-nums">{a.headcount}</b></li>)}</ul>
+        ) : <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-950/30">Este centro aún no tiene áreas capturadas.</p>}
+        {edit && <Link href={`/admin/empresas/${wp.companyId}?tab=estructura#centro-${wp.id}`} className="btn-secondary">✎ Editar en Estructura</Link>}
       </section>}
 
       {sec === "quejas" && <section className="card space-y-4 p-5">

@@ -1,11 +1,12 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 /** Lista editable como etiquetas; envía los valores separados por salto de línea en un campo oculto. */
-export default function ChipsInput({ name, initial, suggestions = [], placeholder, suggestLabel }: {
-  name: string; initial: string[]; suggestions?: string[]; placeholder: string; suggestLabel?: string;
+export default function ChipsInput({ name, initial, suggestions = [], placeholder, suggestLabel, onChange }: {
+  name: string; initial: string[]; suggestions?: string[]; placeholder: string; suggestLabel?: string; onChange?: (items: string[]) => void;
 }) {
   const [items, setItems] = useState<string[]>(initial);
+  useEffect(() => { onChange?.(items); }, [items]); // eslint-disable-line react-hooks/exhaustive-deps
   const [text, setText] = useState("");
   const add = (v: string) => {
     const parts = v.split(/\n|,/).map((x) => x.trim()).filter(Boolean);

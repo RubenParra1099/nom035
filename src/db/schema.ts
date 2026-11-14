@@ -178,6 +178,10 @@ export const companiesRel = relations(companies, ({ many }) => ({ workplaces: ma
 export const workplacesRel = relations(workplaces, ({ one, many }) => ({
   company: one(companies, { fields: [workplaces.companyId], references: [companies.id] }),
   evaluations: many(evaluations),
+  areas: many(workplaceAreas),
+}));
+export const workplaceAreasRel = relations(workplaceAreas, ({ one }) => ({
+  workplace: one(workplaces, { fields: [workplaceAreas.workplaceId], references: [workplaces.id] }),
 }));
 export const evaluationsRel = relations(evaluations, ({ one, many }) => ({
   workplace: one(workplaces, { fields: [evaluations.workplaceId], references: [workplaces.id] }),

@@ -2,12 +2,11 @@
 import Help from "@/components/ui/Help";
 import type { HelpId } from "@/lib/help";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { requiredGuide, sampleSize } from "@/lib/nom035/score";
 import ChipsInput from "@/components/ui/ChipsInput";
 import { SaveButton } from "@/components/ui/forms";
 
-type Row = { key: number; name: string; count: string };
 const GUIDES = [
   { id: "GUIA_II", name: "Guía II · 46 reactivos", desc: "Centros de 16 a 50 trabajadores. Factores de riesgo psicosocial; se aplica a todo el personal." },
   { id: "GUIA_III", name: "Guía III · 72 reactivos", desc: "Centros de más de 50 trabajadores. Agrega la evaluación del entorno organizacional; se aplica a una muestra." },
@@ -22,52 +21,27 @@ function Step({ n, t, d, h }: { n: number; t: string; d?: string; h?: HelpId }) 
   );
 }
 
-export default function NewEvalForm({ action, workplaceId, back, defaultName, headcount, areas, suggestions, positions, positionSuggestions, source }: {
+/** Nueva evaluación: la plantilla (total y áreas) viene de la Estructura de la empresa; aquí solo se confirma. */
+export default function NewEvalForm({ action, workplaceId, back, estructura, defaultName, headcount, areas, fallbackAreas, positions, positionSuggestions, source }: {
   action: (f: FormData) => Promise<void>;
-  workplaceId: string; back: string; defaultName: string; headcount: number;
-  areas: { name: string; headcount: number | null }[]; suggestions: string[];
+  workplaceId: string; back: string; estructura: string; defaultName: string; headcount: number;
+  areas: { name: string; headcount: number }[]; fallbackAreas: string[];
   positions: string[]; positionSuggestions: string[]; source: string | null;
 }) {
-  const [total, setTotal] = useState(headcount ? String(headcount) : "");
-  const [rows, setRows] = useState<Row[]>(() => {
-    const r = areas.map((a, i) => ({ key: i, name: a.name, count: a.headcount == null ? "" : String(a.headcount) }));
-    return r.length ? r : [{ key: 0, name: "", count: "" }];
-  });
-  const [nextKey, setNextKey] = useState(rows.length);
   const [picked, setPicked] = useState<string | null>(null);
-
-  const N = Math.max(0, parseInt(total || "0", 10) || 0);
+  const N = headcount;
   const rec = requiredGuide(N) ?? "GUIA_II";
   const guide = picked ?? rec;
   const target = guide === "GUIA_III" && N > 50 ? sampleSize(N) : N;
-  const named = rows.filter((r) => r.name.trim());
-  const sum = named.reduce((a, r) => a + (parseInt(r.count || "0", 10) || 0), 0);
-  const withCount = named.filter((r) => r.count !== "").length;
-  const dupes = useMemo(() => {
-    const seen = new Set<string>(), d = new Set<string>();
-    for (const r of named) { const k = r.name.trim().toLowerCase(); if (seen.has(k)) d.add(k); seen.add(k); }
-    return d;
-  }, [named]);
-  const missing = suggestions.filter((s) => !named.some((r) => r.name.trim().toLowerCase() === s.toLowerCase()));
-
-  const set = (key: number, patch: Partial<Row>) => setRows((cur) => cur.map((r) => (r.key === key ? { ...r, ...patch } : r)));
-  const add = (names: string[] = [""]) => {
-    setRows((cur) => [...cur.filter((r) => r.name.trim() || r.count), ...names.map((name, i) => ({ key: nextKey + i, name, count: "" }))]);
-    setNextKey((k) => k + names.length);
-  };
-
-  const status = !withCount ? null
-    : !N ? { tone: "amber", text: "Capture el total de trabajadores del centro." }
-    : sum === N && withCount === named.length ? { tone: "green", text: "La plantilla por área coincide con el total del centro." }
-    : withCount < named.length ? { tone: "amber", text: `Faltan ${named.length - withCount} áreas sin número de trabajadores.` }
-    : { tone: "amber", text: sum < N ? `Faltan ${N - sum} trabajadores por asignar a un área.` : `Las áreas suman ${sum - N} trabajadores más que el total.` };
+  const sum = areas.reduce((t, a) => t + a.headcount, 0);
+  const mx = Math.max(1, ...areas.map((a) => a.headcount));
+  const ok = areas.length > 0 && sum === N;
 
   return (
     <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
       <form action={action} className="card space-y-7 p-6">
         <input type="hidden" name="workplaceId" value={workplaceId} />
-        <input type="hidden" name="departments" value={named.map((r) => r.name.trim()).join("\n")} />
-        <input type="hidden" name="areaHeadcount" value={JSON.stringify(Object.fromEntries(named.filter((r) => r.count !== "").map((r) => [r.name.trim(), parseInt(r.count, 10) || 0])))} />
+        {!areas.length && <input type="hidden" name="departments" value={fallbackAreas.join("\n")} />}
 
         <div className="space-y-3">
           <Step n={1} t="Datos de la evaluación" h="ne.datos" />
@@ -78,46 +52,30 @@ export default function NewEvalForm({ action, workplaceId, back, defaultName, he
         </div>
 
         <div className="space-y-3">
-          <Step n={2} h="ne.plantilla" t="Plantilla del centro" d="Trabajadores por área al momento de esta evaluación. Las áreas son las opciones de “Departamento / área” del cuestionario y los filtros del tablero." />
+          <Step n={2} h="ne.plantilla" t="Plantilla del centro" d="Se toma de la Estructura de la empresa y queda guardada con esta evaluación." />
           <div className="space-y-3 pl-9">
-            <div className="flex flex-wrap items-end gap-4">
-              <div>
-                <label className="label" htmlFor="headcount">Total de trabajadores del centro</label>
-                <input id="headcount" name="headcount" type="number" min={1} required className="input w-40 text-right" value={total} onChange={(e) => setTotal(e.target.value)} />
-              </div>
-              <div className="pb-2 text-sm text-gray-500">Suma de áreas: <b className={status?.tone === "green" ? "text-green-700" : "text-ink"}>{sum}</b>{N > 0 && <> / {N}</>}</div>
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl bg-surface-2 px-4 py-3">
+              <div><div className="text-xs text-gray-500">Trabajadores</div><div className="text-xl font-semibold tabular-nums text-ink">{N}</div></div>
+              <div><div className="text-xs text-gray-500">Áreas</div><div className="text-xl font-semibold tabular-nums text-ink">{areas.length}</div></div>
+              <div><div className="text-xs text-gray-500">Suma de áreas</div><div className={`text-xl font-semibold tabular-nums ${ok ? "text-green-700" : "text-amber-600"}`}>{areas.length ? `${sum} ${ok ? "✓" : "⚠"}` : "—"}</div></div>
+              <Link href={estructura} className="btn-secondary ml-auto">✎ Editar en Estructura</Link>
             </div>
-
-            <div className="overflow-hidden rounded-xl border border-line">
-              <div className="grid grid-cols-[minmax(0,1fr)_5.5rem_2rem] sm:grid-cols-[minmax(0,1fr)_8rem_2.5rem] gap-2 bg-surface-2 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                <span>Área</span><span className="text-right">Trabajadores</span><span />
-              </div>
-              {rows.map((r) => {
-                const dup = r.name.trim() && dupes.has(r.name.trim().toLowerCase());
-                return (
-                  <div key={r.key} className="grid grid-cols-[minmax(0,1fr)_5.5rem_2rem] sm:grid-cols-[minmax(0,1fr)_8rem_2.5rem] items-center gap-2 border-t border-line px-3 py-2">
-                    <input aria-label="Nombre del área" className={`input ${dup ? "border-red-400" : ""}`} placeholder="Ej. Producción" value={r.name}
-                      onChange={(e) => set(r.key, { name: e.target.value })}
-                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }} />
-                    <input aria-label={`Trabajadores de ${r.name || "el área"}`} type="number" min={0} className="input text-right" placeholder="—" value={r.count}
-                      onChange={(e) => set(r.key, { count: e.target.value })}
-                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }} />
-                    <button type="button" aria-label={`Quitar ${r.name || "área"}`} className="grid h-9 w-8 place-items-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600"
-                      onClick={() => setRows((cur) => (cur.length > 1 ? cur.filter((x) => x.key !== r.key) : [{ key: r.key, name: "", count: "" }]))}>×</button>
+            {areas.length > 0 ? (
+              <div className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
+                {areas.map((a) => (
+                  <div key={a.name} className="flex items-center gap-3 py-1">
+                    <span className="w-36 truncate text-gray-700" title={a.name}>{a.name}</span>
+                    <span className="h-2 flex-1 overflow-hidden rounded-full bg-surface-2"><span className="block h-full rounded-full bg-brand-600/40" style={{ width: `${(a.headcount / mx) * 100}%` }} /></span>
+                    <span className="w-9 text-right font-semibold tabular-nums text-ink">{a.headcount}</span>
                   </div>
-                );
-              })}
-              <div className="flex flex-wrap items-center gap-3 border-t border-line bg-surface-2/50 px-3 py-2 text-sm">
-                <button type="button" className="font-medium text-brand-700 hover:underline" onClick={() => add()}>+ Agregar área</button>
-                {missing.length > 0 && <span className="text-xs text-gray-500">De la evaluación anterior: {missing.map((m) => (
-                  <button key={m} type="button" className="ml-1 rounded-full bg-brand-50 px-2 py-0.5 text-brand-700 hover:bg-brand-100" onClick={() => add([m])}>+ {m}</button>
-                ))}</span>}
+                ))}
               </div>
-            </div>
-            {status && <p className={`text-xs ${status.tone === "green" ? "text-green-700" : "text-amber-700"}`}>{status.tone === "green" ? "✓ " : "⚠ "}{status.text}
-              {status.tone !== "green" && withCount === named.length && sum > 0 && sum !== N && <> <button type="button" className="font-semibold text-brand-700 hover:underline" onClick={() => setTotal(String(sum))}>Usar {sum} como total</button></>}</p>}
-            {dupes.size > 0 && <p className="text-xs text-red-600">Hay áreas repetidas; se guardará solo una.</p>}
-            <p className="text-xs text-gray-500">El número por área es opcional, pero permite medir participación y representatividad por área y la cobertura de capacitación. Al crear la evaluación se actualiza la plantilla del centro y queda guardada con esta evaluación.</p>
+            ) : (
+              <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-950/30">
+                Este centro no tiene áreas en la Estructura.{fallbackAreas.length ? ` Se usarán las de la evaluación anterior (${fallbackAreas.join(", ")}), sin número de trabajadores.` : " El cuestionario no pedirá área."} Para medir participación por área, <Link href={estructura} className="font-semibold underline">captúrelas en la Estructura</Link>.
+              </p>
+            )}
+            {areas.length > 0 && !ok && <p className="text-xs text-amber-700">⚠ {sum < N ? `Faltan ${N - sum} trabajadores por asignar a un área.` : `Las áreas suman ${sum - N} más que el total.`} Puede crear la evaluación así o corregirlo en la Estructura.</p>}
           </div>
         </div>
 
@@ -159,7 +117,7 @@ export default function NewEvalForm({ action, workplaceId, back, defaultName, he
           <h2 className="flex items-center gap-1.5 text-sm font-semibold text-ink">Resumen<Help id="ne.resumen" /></h2>
           <dl className="mt-3 space-y-2 text-sm">
             <div className="flex justify-between"><dt className="text-gray-500">Trabajadores</dt><dd className="font-semibold text-ink">{N || "—"}</dd></div>
-            <div className="flex justify-between"><dt className="text-gray-500">Áreas</dt><dd className="font-semibold text-ink">{named.length}</dd></div>
+            <div className="flex justify-between"><dt className="text-gray-500">Áreas</dt><dd className="font-semibold text-ink">{areas.length || fallbackAreas.length}</dd></div>
             <div className="flex justify-between"><dt className="text-gray-500">Cuestionario</dt><dd className="font-semibold text-ink">{guide === "GUIA_III" ? "Guía III" : "Guía II"}</dd></div>
             <div className="flex justify-between"><dt className="text-gray-500">Meta de cuestionarios</dt><dd className="font-semibold text-brand-700">{target || "—"}</dd></div>
           </dl>

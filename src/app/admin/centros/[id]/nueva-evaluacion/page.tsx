@@ -16,24 +16,23 @@ export default async function NewEvaluationPage({ params }: { params: Promise<{ 
   const s = await requireUser(["SUPERADMIN", "CONSULTOR"]);
   const w = await db.query.workplaces.findFirst({ where: eq(schema.workplaces.id, id), with: { company: true, evaluations: true } });
   if (!w || !canSeeCompany(s, w.companyId)) notFound();
-  const areaRows = await db.query.workplaceAreas.findMany({ where: eq(schema.workplaceAreas.workplaceId, id) });
+  const areaRows = (await db.query.workplaceAreas.findMany({ where: eq(schema.workplaceAreas.workplaceId, id) }))
+    .sort((x, y) => y.headcount - x.headcount || x.name.localeCompare(y.name, "es"));
   const last = [...w.evaluations].sort((a, b) => +b.createdAt - +a.createdAt)[0];
   const now = new Date();
-  const back = `/admin/empresas/${w.companyId}?centro=${w.id}`;
-  // Áreas de la evaluación anterior; si no se configuraron, las que contestaron los trabajadores.
-  let lastAreas = last?.departments ?? [];
-  if (last && !lastAreas.length) {
-    const rows = await db.selectDistinct({ d: sql<string>`${schema.responses.demographics}->>'departamento'` })
-      .from(schema.responses).where(eq(schema.responses.evaluationId, last.id));
-    lastAreas = rows.map((r) => r.d).filter(Boolean).sort((a, b) => a.localeCompare(b, "es"));
+  const back = `/admin/empresas/${w.companyId}?tab=estructura`;
+  const estructura = `/admin/empresas/${w.companyId}?tab=estructura#centro-${w.id}`;
+  // Sin áreas en la estructura: se usan las de la evaluación anterior (o las que contestaron los trabajadores).
+  let fallbackAreas: string[] = [];
+  if (!areaRows.length && last) {
+    fallbackAreas = last.departments ?? [];
+    if (!fallbackAreas.length) {
+      const rows = await db.selectDistinct({ d: sql<string>`${schema.responses.demographics}->>'departamento'` })
+        .from(schema.responses).where(eq(schema.responses.evaluationId, last.id));
+      fallbackAreas = rows.map((r) => r.d).filter(Boolean).sort((a, b) => a.localeCompare(b, "es"));
+    }
   }
-  const areas = areaRows.length
-    ? [...areaRows.map((a) => ({ name: a.name, headcount: a.headcount as number | null })),
-       ...lastAreas.filter((d) => !areaRows.some((a) => a.name.toLowerCase() === d.toLowerCase())).map((name) => ({ name, headcount: null }))]
-    : lastAreas.map((name) => ({ name, headcount: last?.areaHeadcount?.[name] ?? null }));
-  const source = areaRows.length ? "La plantilla se tomó del centro de trabajo; ajústela si cambió."
-    : last && lastAreas.length ? `Las áreas y puestos se tomaron de la evaluación anterior, “${last.name}”; capture cuántos trabajadores tiene cada una.`
-    : last ? `Los puestos se tomaron de la evaluación anterior, “${last.name}”.` : null;
+  const source = last?.positions?.length ? `Los puestos se tomaron de la evaluación anterior, “${last.name}”.` : null;
 
   return (
     <div className="space-y-5">
@@ -45,7 +44,7 @@ export default async function NewEvaluationPage({ params }: { params: Promise<{ 
         <p className="text-sm text-gray-500">{w.company.name}</p>
       </div>
       <NewEvalForm action={createEvaluation} workplaceId={w.id} back={back} defaultName={`Evaluación ${MONTHS.at(now.getMonth())} ${now.getFullYear()}`}
-        headcount={w.headcount} areas={areas} suggestions={lastAreas}
+        estructura={estructura} headcount={w.headcount} areas={areaRows.map((a) => ({ name: a.name, headcount: a.headcount }))} fallbackAreas={fallbackAreas}
         positions={last?.positions?.length ? last.positions : POSITIONS} positionSuggestions={POSITIONS} source={source} />
     </div>
   );

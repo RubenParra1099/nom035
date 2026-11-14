@@ -110,7 +110,12 @@ export default async function EvaluationPage({ params }: { params: Promise<{ id:
           <input type="hidden" name="id" value={id} />
           <div><h2 className="flex items-center gap-2 font-semibold text-ink">Configuración<Help id="ev.config" /></h2><p className="text-xs text-gray-500">Las áreas y puestos son las opciones del cuestionario y los filtros del tablero.</p></div>
           <div className="max-w-md"><label className="label">Nombre</label><input name="name" defaultValue={ev.name} className="input" required minLength={2} /></div>
-          <div><label className="label">Áreas del centro</label><ChipsInput name="departments" initial={ev.departments} placeholder="Ej. Administración, Producción" /></div>
+          <div>
+            <div className="flex flex-wrap items-baseline justify-between gap-2"><span className="label">Áreas del centro</span>
+              <Link href={`/admin/empresas/${ev.workplace.companyId}?tab=estructura#centro-${ev.workplaceId}`} className="text-xs font-medium text-brand-700 hover:underline">✎ Editar en Estructura</Link></div>
+            <div className="flex flex-wrap gap-1.5">{ev.departments.length ? ev.departments.map((d) => <span key={d} className="rounded-full bg-brand-50 px-2.5 py-1 text-sm text-brand-700">{d}{ev.areaHeadcount?.[d] != null && <span className="ml-1 text-xs text-gray-500">· {ev.areaHeadcount[d]}</span>}</span>) : <span className="text-sm text-gray-500">Sin áreas</span>}</div>
+            <p className="mt-1 text-xs text-gray-500">{ev.status === "CERRADA" ? "Evaluación cerrada: conserva las áreas del día en que se creó." : "Se toman de la Estructura del centro; los cambios ahí se aplican a esta evaluación mientras no esté cerrada."}</p>
+          </div>
           <div><label className="label">Tipos de puesto</label><ChipsInput name="positions" initial={ev.positions} placeholder="Ej. Operativo, Supervisor" /></div>
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="includeGuideI" defaultChecked={ev.includeGuideI} /> Incluir Guía I (acontecimientos traumáticos severos)</label>
           <div className="flex justify-end border-t border-line pt-4"><SaveButton>Guardar cambios</SaveButton></div>

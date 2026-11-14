@@ -43,6 +43,13 @@
       "when": 1794540142807,
       "tag": "0005_plantilla_evaluacion",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1794629498465,
+      "tag": "0006_estructura_desde_evaluaciones",
+      "breakpoints": true
     }
   ]
 }

@@ -4,30 +4,29 @@ import { notFound } from "next/navigation";
 import { eq, inArray, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { canEdit, canSeeCompany, requireUser } from "@/lib/auth";
-import { requiredGuide, sampleSize } from "@/lib/nom035/score";
+import { sampleSize } from "@/lib/nom035/score";
 import ConfirmButton from "@/components/ConfirmButton";
 import EvalCard from "@/components/EvalCard";
+import { SaveButton } from "@/components/ui/forms";
+import { CentroEditor, ImportStructure } from "@/components/structure/CentroEditor";
+import { guideLabel } from "@/lib/nom035/guideLabel";
 import { GUIDES, levelFor } from "@/lib/nom035/guides";
-import { createWorkplace, deleteCompany, deleteWorkplace, updateCompany, updateWorkplace } from "../../actions";
+import { deleteCompany, deleteWorkplace, updateCompany } from "../../actions";
 import { SECTORS } from "@/lib/sectors";
 
 export const dynamic = "force-dynamic";
 
-type Tab = "evaluaciones" | "gestion" | "datos";
+type Tab = "resumen" | "estructura" | "evaluaciones" | "gestion" | "datos";
 const TABS: { id: Tab; label: string }[] = [
+  { id: "resumen", label: "Resumen" },
+  { id: "estructura", label: "Estructura" },
   { id: "evaluaciones", label: "Evaluaciones" },
   { id: "gestion", label: "Gestión preventiva" },
-  { id: "datos", label: "Datos del centro" },
+  { id: "datos", label: "Datos de la empresa" },
 ];
-const guideText = (n: number) => {
-  const g = requiredGuide(n);
-  return g === null ? "Hasta 15 trabajadores: aplica Guía I y política de prevención"
-    : g === "GUIA_II" ? "Aplica Guía II a todo el personal"
-    : `Aplica Guía III · muestra mínima ${sampleSize(n)}`;
-};
 
 export default async function CompanyPage({ params, searchParams }: {
-  params: Promise<{ id: string }>; searchParams: Promise<{ centro?: string; tab?: string; nuevo?: string }>;
+  params: Promise<{ id: string }>; searchParams: Promise<{ centro?: string; tab?: string; nuevo?: string; creado?: string }>;
 }) {
   const { id } = await params;
   const q = await searchParams;
@@ -35,16 +34,16 @@ export default async function CompanyPage({ params, searchParams }: {
   if (!canSeeCompany(s, id)) notFound();
   const company = await db.query.companies.findFirst({
     where: eq(schema.companies.id, id),
-    with: { workplaces: { with: { evaluations: true }, orderBy: (w, { asc }) => [asc(w.name)] } },
+    with: { workplaces: { with: { evaluations: true, areas: true }, orderBy: (w, { asc }) => [asc(w.name)] } },
   });
   if (!company) notFound();
   const edit = canEdit(s);
   const wps = company.workplaces;
-  const adding = edit && (q.nuevo === "centro" || wps.length === 0);
-  const w = adding ? undefined : wps.find((x) => x.id === q.centro) ?? wps[0];
-  const tab: Tab = TABS.some((t) => t.id === q.tab) && (q.tab !== "datos" || edit) ? (q.tab as Tab) : "evaluaciones";
   const base = `/admin/empresas/${company.id}`;
-  const href = (centro: string, t: Tab = "evaluaciones") => `${base}?centro=${centro}${t === "evaluaciones" ? "" : `&tab=${t}`}`;
+  const hasEval = wps.some((w) => w.evaluations.length);
+  const requested = q.nuevo === "centro" ? "estructura" : q.centro && !q.tab ? "evaluaciones" : q.tab;
+  const tab: Tab = TABS.some((t) => t.id === requested) && (requested !== "datos" || edit) ? (requested as Tab) : hasEval ? "resumen" : "estructura";
+  const focus = wps.find((w) => w.id === q.centro);
 
   const evalIds = wps.flatMap((x) => x.evaluations.map((e) => e.id));
   const counts = evalIds.length
@@ -53,188 +52,219 @@ export default async function CompanyPage({ params, searchParams }: {
         .where(inArray(schema.responses.evaluationId, evalIds)).groupBy(schema.responses.evaluationId)
     : [];
   const statOf = (eid: string) => counts.find((c) => c.id === eid);
-  const respOf = (wid: string) => wps.find((x) => x.id === wid)!.evaluations.reduce((t, e) => t + (statOf(e.id)?.n ?? 0), 0);
+  const respOf = (w: (typeof wps)[number]) => w.evaluations.reduce((t, e) => t + (statOf(e.id)?.n ?? 0), 0);
+  const latest = (w: (typeof wps)[number]) => [...w.evaluations].sort((a, b) => +b.createdAt - +a.createdAt)[0];
+  const card = (w: (typeof wps)[number], e: (typeof wps)[number]["evaluations"][number]) => {
+    const st = statOf(e.id); const enough = (st?.n ?? 0) >= 5; const N = e.headcount ?? w.headcount;
+    return <EvalCard key={e.id} canSeeConfidential={s.role !== "CLIENTE"} ev={{
+      id: e.id, name: e.name, guide: e.guide, includeGuideI: e.includeGuideI, status: e.status, createdAt: e.createdAt, workplaceId: w.id,
+      responses: st?.n ?? 0, target: e.guide === "GUIA_III" ? sampleSize(N) : N || null,
+      mean: enough ? st!.mean : null, level: enough ? levelFor(st!.mean, GUIDES[e.guide].finalCuts) : null, atsCases: st?.ats ?? 0,
+    }} />;
+  };
 
-  // Resumen de gestión preventiva del centro seleccionado
-  const gestion = w && tab === "gestion" ? await Promise.all([
-    db.select({ n: sql<number>`count(*)::int`, total: sql<number>`coalesce(sum(${schema.workplaceAreas.headcount}),0)::int` }).from(schema.workplaceAreas).where(eq(schema.workplaceAreas.workplaceId, w.id)),
-    db.select({ n: sql<number>`count(*)::int`, open: sql<number>`count(*) filter (where ${schema.complaints.status} <> 'CERRADA')::int` }).from(schema.complaints).where(eq(schema.complaints.workplaceId, w.id)),
-    db.select({ n: sql<number>`count(*)::int`, people: sql<number>`coalesce(sum(${schema.trainings.attendees}),0)::int` }).from(schema.trainings).where(eq(schema.trainings.workplaceId, w.id)),
-  ]) : null;
+  const totals = {
+    trab: wps.reduce((t, w) => t + w.headcount, 0), areas: wps.reduce((t, w) => t + w.areas.length, 0),
+    evals: evalIds.length, resp: counts.reduce((t, c) => t + c.n, 0),
+  };
+  const gestion = tab === "gestion" && wps.length ? await Promise.all(wps.map(async (w) => {
+    const [[c], [t]] = await Promise.all([
+      db.select({ n: sql<number>`count(*)::int`, open: sql<number>`count(*) filter (where ${schema.complaints.status} <> 'CERRADA')::int` }).from(schema.complaints).where(eq(schema.complaints.workplaceId, w.id)),
+      db.select({ n: sql<number>`count(*)::int`, people: sql<number>`coalesce(sum(${schema.trainings.attendees}),0)::int` }).from(schema.trainings).where(eq(schema.trainings.workplaceId, w.id)),
+    ]);
+    return { w, c, t };
+  })) : [];
+  const steps: [string, string, boolean, Tab][] = [
+    ["Captura la estructura", "Centros de trabajo con sus áreas y trabajadores.", wps.length > 0 && wps.every((w) => w.areas.length > 0), "estructura"],
+    ["Crea la evaluación", "Desde la estructura: “+ Nueva evaluación” en cada centro.", hasEval, "estructura"],
+    ["Analiza los resultados", "Tablero e indicadores, informe PDF y casos de Guía I.", totals.resp > 0, "evaluaciones"],
+    ["Interviene y da seguimiento", "Programa de intervención, quejas y capacitación.", false, "gestion"],
+  ];
 
   return (
     <div className="space-y-5">
-      {/* Encabezado de la empresa */}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <nav aria-label="Ruta" className="text-sm text-gray-500"><Link href="/admin" className="hover:text-gray-900">Empresas</Link> › <span>{company.name}</span></nav>
           <h1 className="flex items-center gap-2 text-2xl font-semibold text-ink">{company.name}<Help id="empresa" /></h1>
-          <p className="text-sm text-gray-500">{[company.sector ?? "Giro sin especificar", company.rfc, `${wps.length} ${wps.length === 1 ? "centro de trabajo" : "centros de trabajo"}`].filter(Boolean).join(" · ")}</p>
+          <p className="text-sm text-gray-500">{[company.sector ?? "Giro sin especificar", company.rfc, `${wps.length} ${wps.length === 1 ? "centro" : "centros"}`, `${totals.trab} trabajadores`, `${totals.areas} áreas`].filter(Boolean).join(" · ")}</p>
         </div>
-        {edit && <Link href={`${base}?nuevo=centro`} className="btn-secondary">+ Agregar centro</Link>}
+        {edit && <CentroEditor companyId={company.id} trigger="+ Agregar centro de trabajo" />}
       </div>
 
-      {edit && (
-        <details className="card p-4">
-          <summary className="cursor-pointer text-sm font-medium text-brand-700">Editar datos de la empresa</summary>
-          <form action={updateCompany} className="mt-3 grid gap-3 md:grid-cols-5 md:items-end">
+      {q.creado && (
+        <div className="card border-green-200 bg-green-50 p-4 text-sm text-green-800 dark:bg-green-950/30">✓ Cliente creado. Su estructura y sus evaluaciones están listas; comparta el enlace desde cada evaluación.</div>
+      )}
+
+      <div className="flex gap-1 overflow-x-auto border-b border-line" role="tablist">
+        {TABS.filter((t) => t.id !== "datos" || edit).map((t) => (
+          <Link key={t.id} href={`${base}?tab=${t.id}`} role="tab" aria-selected={tab === t.id}
+            className={`whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium transition ${tab === t.id ? "border-brand-600 text-brand-700" : "border-transparent text-gray-500 hover:text-gray-800"}`}>
+            {t.label}{t.id === "estructura" && wps.some((w) => !w.areas.length) && <span className="ml-1.5 inline-block h-2 w-2 rounded-full bg-amber-500" title="Hay centros sin áreas" />}
+          </Link>
+        ))}
+        <span className="ml-auto flex items-center px-1"><Help id={`emp.${tab}`} /></span>
+      </div>
+
+      {/* ---------- Resumen ---------- */}
+      {tab === "resumen" && (
+        <div className="space-y-5">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+            {([["Centros de trabajo", wps.length], ["Trabajadores", totals.trab], ["Áreas", totals.areas], ["Evaluaciones", totals.evals], ["Respuestas", totals.resp]] as const).map(([l, v]) => (
+              <div key={l} className="card p-4"><div className="text-xs font-medium text-gray-500">{l}</div><div className="mt-1 text-2xl font-semibold tabular-nums text-ink">{v.toLocaleString("es-MX")}</div></div>
+            ))}
+          </div>
+          <section className="space-y-3">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Evaluación más reciente de cada centro</h2>
+            {wps.map((w) => {
+              const e = latest(w);
+              return (
+                <div key={w.id} className="space-y-2">
+                  <div className="flex flex-wrap items-baseline gap-2"><h3 className="text-base font-semibold text-ink">{w.name}</h3><span className="text-xs text-gray-500">{w.headcount} trabajadores · {w.areas.length} áreas · {guideLabel(w.headcount)}</span>
+                    {w.evaluations.length > 1 && <Link href={`${base}?tab=evaluaciones&centro=${w.id}`} className="ml-auto text-xs font-medium text-brand-700 hover:underline">Ver {w.evaluations.length} evaluaciones →</Link>}</div>
+                  {e ? card(w, e) : (
+                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed border-gray-300 p-4 text-sm text-gray-600">
+                      Este centro aún no tiene evaluaciones.
+                      {edit && <Link href={`/admin/centros/${w.id}/nueva-evaluacion`} className="btn-primary">+ Nueva evaluación</Link>}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            {!wps.length && <p className="text-sm text-gray-500">Aún no hay centros de trabajo. Empiece por la pestaña <Link className="font-medium text-brand-700 hover:underline" href={`${base}?tab=estructura`}>Estructura</Link>.</p>}
+          </section>
+          <section className="card p-4">
+            <h2 className="text-sm font-semibold text-ink">Cómo trabajar con esta empresa</h2>
+            <ol className="mt-3 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
+              {steps.map(([t, d, done, to], i) => (
+                <li key={t}><Link href={`${base}?tab=${to}`} className="flex h-full gap-2.5 rounded-lg bg-surface-2 p-3 hover:ring-1 hover:ring-brand-600">
+                  <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-xs font-bold text-white ${done ? "bg-green-600" : "bg-brand-600"}`}>{done ? "✓" : i + 1}</span>
+                  <span><span className="block font-medium text-ink">{t}</span><span className="block text-xs text-gray-500">{d}</span></span>
+                </Link></li>
+              ))}
+            </ol>
+          </section>
+        </div>
+      )}
+
+      {/* ---------- Estructura ---------- */}
+      {tab === "estructura" && (
+        <div className="space-y-4">
+          <div className="card flex flex-col gap-3 border-green-200 bg-green-50/60 p-4 text-sm sm:flex-row sm:items-center dark:bg-green-950/20">
+            <span className="min-w-0 flex-1"><span className="mr-1 text-green-700">✓</span><b className="text-ink">La estructura es el único lugar donde se capturan centros y áreas.</b> <span className="text-gray-600">Las evaluaciones, el cuestionario, los filtros del tablero y la capacitación la toman de aquí. Cada evaluación guarda una foto de la estructura del día en que se crea.</span></span>
+            {edit && <ImportStructure companyId={company.id} />}
+          </div>
+          <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
+            {wps.map((w) => {
+              const sum = w.areas.reduce((t, a) => t + a.headcount, 0);
+              const ok = w.areas.length > 0 && sum === w.headcount;
+              const mx = Math.max(1, ...w.areas.map((a) => a.headcount));
+              const areas = [...w.areas].sort((a, b) => b.headcount - a.headcount);
+              return (
+                <section key={w.id} id={`centro-${w.id}`} className="card flex flex-col p-5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0"><h2 className="text-base font-semibold text-ink">{w.name}</h2><p className="truncate text-xs text-gray-500">{w.address || "Sin domicilio"}</p></div>
+                    <span className="shrink-0 rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-semibold text-brand-700">{guideLabel(w.headcount)}</span>
+                  </div>
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                    <div><div className="text-xs text-gray-500">Trabajadores</div><div className="text-xl font-semibold tabular-nums text-ink">{w.headcount}</div></div>
+                    <div><div className="text-xs text-gray-500">Áreas</div><div className="text-xl font-semibold tabular-nums text-ink">{w.areas.length}</div></div>
+                    <div><div className="text-xs text-gray-500">Suma de áreas</div><div className={`text-xl font-semibold tabular-nums ${ok ? "text-green-700" : "text-amber-600"}`}>{w.areas.length ? `${sum} ${ok ? "✓" : "⚠"}` : "—"}</div></div>
+                  </div>
+                  <div className="mt-3 flex-1 border-t border-line pt-2 text-sm">
+                    {areas.map((a) => (
+                      <div key={a.id} className="flex items-center gap-3 py-1">
+                        <span className="w-36 truncate text-gray-700" title={a.name}>{a.name}</span>
+                        <span className="h-2 flex-1 overflow-hidden rounded-full bg-surface-2"><span className="block h-full rounded-full bg-brand-600/40" style={{ width: `${(a.headcount / mx) * 100}%` }} /></span>
+                        <span className="w-9 text-right font-semibold tabular-nums text-ink">{a.headcount || "—"}</span>
+                        <span className="w-10 text-right text-xs tabular-nums text-gray-500">{a.headcount && w.headcount ? `${Math.round((a.headcount / w.headcount) * 100)}%` : ""}</span>
+                      </div>
+                    ))}
+                    {!w.areas.length && <p className="rounded-lg bg-amber-50 p-3 text-xs text-amber-800 dark:bg-amber-950/30">Este centro no tiene áreas. Captúrelas para medir participación por área y filtrar el tablero.</p>}
+                    {w.areas.length > 0 && !ok && <p className="mt-1 text-xs text-amber-700">{sum < w.headcount ? `Faltan ${w.headcount - sum} trabajadores por asignar a un área.` : `Las áreas suman ${sum - w.headcount} más que el total.`}</p>}
+                  </div>
+                  {edit && (
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3">
+                      <CentroEditor companyId={company.id} trigger={w.areas.length ? "✎ Editar centro y áreas" : "+ Capturar áreas"} triggerClass="text-sm font-medium text-brand-700 hover:underline"
+                        centro={{ id: w.id, name: w.name, address: w.address, headcount: w.headcount, areas: [...w.areas].sort((a, b) => a.name.localeCompare(b.name, "es")).map((a) => ({ name: a.name, headcount: a.headcount })) }} />
+                      <Link href={`/admin/centros/${w.id}/nueva-evaluacion`} className="btn-secondary">+ Nueva evaluación</Link>
+                    </div>
+                  )}
+                </section>
+              );
+            })}
+            {edit && (
+              <CentroEditor companyId={company.id} triggerClass="card flex min-h-48 flex-col items-center justify-center gap-1 border-dashed p-5 text-center text-brand-700 hover:border-brand-600"
+                trigger={<><span className="text-3xl leading-none">＋</span><span className="font-semibold">Agregar centro de trabajo</span><span className="text-xs text-gray-500">Nombre, domicilio, trabajadores y áreas en un solo paso</span></>} />
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ---------- Evaluaciones ---------- */}
+      {tab === "evaluaciones" && (
+        <div className="space-y-6">
+          {focus && <p className="text-sm text-gray-600">Mostrando <b>{focus.name}</b>. <Link href={`${base}?tab=evaluaciones`} className="font-medium text-brand-700 hover:underline">Ver todos los centros</Link></p>}
+          {(focus ? [focus] : wps).map((w) => (
+            <section key={w.id} className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div><h2 className="text-base font-semibold text-ink">{w.name}</h2><p className="text-xs text-gray-500">{w.headcount} trabajadores · {guideLabel(w.headcount)} · {respOf(w)} respuestas</p></div>
+                {edit && <Link href={`/admin/centros/${w.id}/nueva-evaluacion`} className="btn-primary">+ Nueva evaluación</Link>}
+              </div>
+              {[...w.evaluations].sort((a, b) => +b.createdAt - +a.createdAt).map((e) => card(w, e))}
+              {!w.evaluations.length && <div className="rounded-xl border border-dashed border-gray-300 p-6 text-center text-sm text-gray-500">Este centro aún no tiene evaluaciones.</div>}
+            </section>
+          ))}
+          {!wps.length && <p className="text-sm text-gray-500">Primero capture la <Link className="font-medium text-brand-700 hover:underline" href={`${base}?tab=estructura`}>estructura</Link>.</p>}
+        </div>
+      )}
+
+      {/* ---------- Gestión preventiva ---------- */}
+      {tab === "gestion" && (
+        <div className="space-y-3">
+          <p className="text-sm text-gray-600">Buzón de quejas y capacitación de cada centro: demuestran que las medidas de prevención funcionan y alimentan los indicadores de efectividad.</p>
+          <div className="grid gap-3 md:grid-cols-2">
+            {gestion.map(({ w, c, t }) => (
+              <Link key={w.id} href={`/admin/centros/${w.id}?sec=quejas`} className="card p-4 transition hover:border-brand-600">
+                <div className="flex items-center justify-between"><h2 className="font-semibold text-ink">{w.name}</h2><span className="text-sm text-brand-700">Abrir →</span></div>
+                <div className="mt-2 grid grid-cols-2 gap-3 text-sm">
+                  <div><div className="text-xs text-gray-500">Buzón de quejas</div><div className="font-semibold text-ink">{c.n ? `${c.n} quejas · ${c.open} abiertas` : "Sin quejas"}</div></div>
+                  <div><div className="text-xs text-gray-500">Capacitación</div><div className="font-semibold text-ink">{t.n ? `${t.n} sesiones · ${t.people} asistentes` : "Sin sesiones"}</div></div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ---------- Datos ---------- */}
+      {tab === "datos" && edit && (
+        <div className="space-y-5">
+          <form action={updateCompany} className="card grid gap-4 p-5 md:grid-cols-2">
             <input type="hidden" name="id" value={company.id} />
             <div className="md:col-span-2"><label className="label">Razón social / nombre</label><input name="name" className="input" defaultValue={company.name} required /></div>
             <div><label className="label">RFC</label><input name="rfc" className="input" defaultValue={company.rfc ?? ""} /></div>
             <div><label className="label">Giro o sector</label><select name="sector" className="input" defaultValue={company.sector ?? ""}><option value="">Sin especificar</option>{SECTORS.map((x) => <option key={x}>{x}</option>)}</select></div>
-            <div><label className="label">Contacto</label><input name="contact" className="input" defaultValue={company.contact ?? ""} /></div>
-            <div className="md:col-span-5 md:text-right"><button className="btn-primary">Guardar</button></div>
+            <div className="md:col-span-2"><label className="label">Contacto</label><input name="contact" className="input" defaultValue={company.contact ?? ""} /></div>
+            <div className="flex justify-end border-t border-line pt-4 md:col-span-2"><SaveButton>Guardar cambios</SaveButton></div>
           </form>
-        </details>
-      )}
-
-      <div className="grid gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
-        {/* Lista de centros */}
-        <aside className="card h-fit p-2 print:hidden" aria-label="Centros de trabajo">
-          <div className="px-2 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500">Centros de trabajo</div>
-          <ul className="space-y-1">
-            {wps.map((x) => {
-              const sel = x.id === w?.id;
-              return (
-                <li key={x.id}>
-                  <Link href={href(x.id)} aria-current={sel ? "page" : undefined}
-                    className={`block rounded-lg px-3 py-2.5 transition ${sel ? "bg-brand-50" : "hover:bg-gray-50"}`}>
-                    <span className={`block text-sm font-semibold ${sel ? "text-brand-700" : "text-ink"}`}>{x.name}</span>
-                    <span className="block text-xs text-gray-500">{x.headcount} trabajadores · {x.evaluations.length} {x.evaluations.length === 1 ? "evaluación" : "evaluaciones"} · {respOf(x.id)} resp.</span>
-                  </Link>
-                </li>
-              );
-            })}
-            {wps.length === 0 && <li className="px-3 py-2 text-sm text-gray-500">Aún no hay centros.</li>}
-          </ul>
-          {edit && <Link href={`${base}?nuevo=centro`} className={`mt-1 block rounded-lg px-3 py-2 text-sm font-medium ${adding ? "bg-brand-50 text-brand-700" : "text-brand-700 hover:bg-gray-50"}`}>+ Agregar centro de trabajo</Link>}
-        </aside>
-
-        {/* Panel del centro */}
-        <section className="card min-w-0 p-0">
-          {adding ? (
-            <div className="p-6">
-              <h2 className="flex items-center gap-2 text-lg font-semibold text-ink">Nuevo centro de trabajo<Help id="empresa.nuevocentro" /></h2>
-              <p className="mt-1 text-sm text-gray-500">La NOM-035 se aplica por centro de trabajo. Con el número de trabajadores la plataforma define la guía que aplica y la muestra mínima.</p>
-              <form action={createWorkplace} className="mt-4 grid max-w-2xl gap-4 md:grid-cols-2">
-                <input type="hidden" name="companyId" value={company.id} />
-                <div className="md:col-span-2"><label className="label">Nombre del centro</label><input name="name" className="input" required minLength={2} placeholder="Ej. Planta Monterrey, Sucursal Centro" /></div>
-                <div><label className="label">Domicilio</label><input name="address" className="input" /></div>
-                <div><label className="label">Número de trabajadores</label><input name="headcount" type="number" min={0} className="input" required /></div>
-                <div className="flex gap-2 md:col-span-2">
-                  <button className="btn-primary">Agregar centro</button>
-                  {wps.length > 0 && <Link href={base} className="btn-secondary">Cancelar</Link>}
-                </div>
+          {s.role === "SUPERADMIN" && (
+            <section className="space-y-3 rounded-xl border border-red-200 p-5">
+              <h2 className="text-sm font-semibold text-red-700">Zona de riesgo</h2>
+              {wps.map((w) => (
+                <form key={w.id} action={deleteWorkplace} className="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-3 text-sm last:border-0">
+                  <input type="hidden" name="id" value={w.id} />
+                  <span>{w.name} · {w.evaluations.length} evaluaciones · {respOf(w)} respuestas</span>
+                  <ConfirmButton className="btn-danger" message={`¿Eliminar el centro "${w.name}" con sus evaluaciones, respuestas, programa, casos de Guía I, quejas y capacitaciones? No se puede deshacer.`}>Eliminar centro</ConfirmButton>
+                </form>
+              ))}
+              <form action={deleteCompany} className="pt-1">
+                <input type="hidden" name="id" value={company.id} />
+                <ConfirmButton className="btn-danger" message="¿Eliminar la empresa con todos sus centros, evaluaciones y respuestas? No se puede deshacer.">Eliminar empresa y todos sus datos</ConfirmButton>
               </form>
-            </div>
-          ) : w && (
-            <>
-              <div className="flex flex-wrap items-start justify-between gap-3 px-6 pt-5">
-                <div>
-                  <h2 className="flex items-center gap-2 text-xl font-semibold text-ink">{w.name}<Help id="empresa.centro" /></h2>
-                  <p className="text-sm text-gray-500">{w.headcount} trabajadores · {guideText(w.headcount)}{w.address ? ` · ${w.address}` : ""}</p>
-                </div>
-                {edit && <Link href={`/admin/centros/${w.id}/nueva-evaluacion`} className="btn-primary">+ Nueva evaluación</Link>}
-              </div>
-              <div className="mt-4 flex gap-1 overflow-x-auto border-b border-line px-6" role="tablist">
-                {TABS.filter((t) => t.id !== "datos" || edit).map((t) => (
-                  <Link key={t.id} href={href(w.id, t.id)} role="tab" aria-selected={tab === t.id}
-                    className={`whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium transition ${tab === t.id ? "border-brand-600 text-brand-700" : "border-transparent text-gray-500 hover:text-gray-800"}`}>{t.label}</Link>
-                ))}
-              </div>
-
-              <div className="p-6">
-                {tab === "evaluaciones" && (
-                  <div className="space-y-3">
-                    {[...w.evaluations].sort((a, b) => +b.createdAt - +a.createdAt).map((e) => {
-                      const st = statOf(e.id);
-                      const enough = (st?.n ?? 0) >= 5;
-                      return <EvalCard key={e.id} canSeeConfidential={s.role !== "CLIENTE"} ev={{
-                        id: e.id, name: e.name, guide: e.guide, includeGuideI: e.includeGuideI, status: e.status, createdAt: e.createdAt, workplaceId: w.id,
-                        responses: st?.n ?? 0, target: w.headcount > 50 ? sampleSize(w.headcount) : w.headcount || null,
-                        mean: enough ? st!.mean : null, level: enough ? levelFor(st!.mean, GUIDES[e.guide].finalCuts) : null, atsCases: st?.ats ?? 0,
-                      }} />;
-                    })}
-                    {w.evaluations.length === 0 && (
-                      <div className="rounded-xl border border-dashed border-gray-300 p-8 text-center">
-                        <p className="text-base font-semibold text-ink">Este centro aún no tiene evaluaciones</p>
-                        <p className="mx-auto mt-1 max-w-md text-sm text-gray-500">Al crearla obtendrás el enlace y el código QR para que el personal responda, o podrás importar respuestas desde Excel.</p>
-                        {edit && <Link href={`/admin/centros/${w.id}/nueva-evaluacion`} className="btn-primary mt-4">+ Crear la primera evaluación</Link>}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {tab === "gestion" && gestion && (
-                  <div className="space-y-4">
-                    <p className="text-sm text-gray-600">Registros que demuestran que las medidas de prevención funcionan y alimentan los indicadores de efectividad del tablero.</p>
-                    <div className="grid gap-3 sm:grid-cols-3">
-                      {[
-                        ["Plantilla por área", gestion[0][0].n ? `${gestion[0][0].n} áreas · ${gestion[0][0].total} trabajadores` : "Sin capturar", "Participación y prioridad por área"],
-                        ["Buzón de quejas", gestion[1][0].n ? `${gestion[1][0].n} quejas · ${gestion[1][0].open} abiertas` : "Sin quejas registradas", "Quejas por prácticas opuestas al entorno favorable"],
-                        ["Capacitación", gestion[2][0].n ? `${gestion[2][0].n} cursos · ${gestion[2][0].people} asistentes` : "Sin capacitaciones", "Sensibilización y efectividad del aprendizaje"],
-                      ].map(([t, v, d]) => (
-                        <div key={t} className="rounded-xl border border-line p-4">
-                          <div className="text-sm font-semibold text-ink">{t}</div>
-                          <div className="mt-1 text-base font-semibold text-brand-700">{v}</div>
-                          <div className="mt-1 text-xs text-gray-500">{d}</div>
-                        </div>
-                      ))}
-                    </div>
-                    <Link href={`/admin/centros/${w.id}`} className="btn-secondary">Abrir gestión preventiva →</Link>
-                  </div>
-                )}
-
-                {tab === "datos" && edit && (
-                  <div className="space-y-6">
-                    <form action={updateWorkplace} className="grid max-w-2xl gap-4 md:grid-cols-2">
-                      <input type="hidden" name="id" value={w.id} />
-                      <div className="md:col-span-2"><label className="label">Nombre del centro</label><input name="name" className="input" defaultValue={w.name} required minLength={2} /></div>
-                      <div><label className="label">Domicilio</label><input name="address" className="input" defaultValue={w.address ?? ""} /></div>
-                      <div><label className="label">Número de trabajadores</label><input name="headcount" type="number" min={0} defaultValue={w.headcount} className="input" required /></div>
-                      <p className="text-xs text-gray-500 md:col-span-2">El número de trabajadores define la guía que aplica, la muestra mínima y el margen de error. Las evaluaciones y respuestas no cambian.</p>
-                      <div className="md:col-span-2"><button className="btn-primary">Guardar cambios</button></div>
-                    </form>
-                    {s.role === "SUPERADMIN" && (
-                      <div className="max-w-2xl rounded-xl border border-red-200 p-4">
-                        <div className="text-sm font-semibold text-red-700">Eliminar este centro de trabajo</div>
-                        <p className="mt-1 text-sm text-gray-600">Se borran sus {w.evaluations.length} evaluaciones con {respOf(w.id)} respuestas, informes, programa, casos de Guía I, plantilla por área, quejas y capacitaciones. No se puede deshacer.</p>
-                        <form action={deleteWorkplace} className="mt-3">
-                          <input type="hidden" name="id" value={w.id} />
-                          <ConfirmButton className="btn-danger" message={`¿Eliminar el centro "${w.name}" y todos sus datos? No se puede deshacer.`}>Eliminar centro de trabajo</ConfirmButton>
-                        </form>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </>
+            </section>
           )}
-        </section>
-      </div>
-
-      <details className="card p-4">
-        <summary className="cursor-pointer text-sm font-semibold text-ink">Cómo trabajar con esta empresa</summary>
-        <ol className="mt-3 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
-          {[
-            ["Registra el centro de trabajo", "Con su número de trabajadores: define la guía que aplica y la muestra mínima."],
-            ["Crea la evaluación", "Botón \"+ Nueva evaluación\" del centro: elige la guía, las áreas y los puestos."],
-            ["Analiza los resultados", "Tablero e indicadores, informe PDF y seguimiento de los casos de Guía I."],
-            ["Interviene y da seguimiento", "Programa de intervención, quejas y capacitación; vuelve a evaluar para medir el avance."],
-          ].map(([t, d], i) => (
-            <li key={t} className="flex gap-2.5 rounded-lg bg-surface-2 p-3">
-              <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-brand-600 text-xs font-bold text-white">{i + 1}</span>
-              <span><span className="block font-medium text-ink">{t}</span><span className="block text-xs text-gray-500">{d}</span></span>
-            </li>
-          ))}
-        </ol>
-      </details>
-
-      {s.role === "SUPERADMIN" && (
-        <form action={deleteCompany} className="text-right">
-          <input type="hidden" name="id" value={company.id} />
-          <ConfirmButton className="btn-danger" message="¿Eliminar la empresa con todos sus centros, evaluaciones y respuestas? No se puede deshacer.">Eliminar empresa y todos sus datos</ConfirmButton>
-        </form>
+        </div>
       )}
     </div>
   );

@@ -89,20 +89,15 @@ export async function createEvaluation(form: FormData) {
     workplaceId: form.get("workplaceId"), name: form.get("name"), guide: form.get("guide"),
     includeGuideI: form.get("includeGuideI") === "on",
   });
-  const departments = [...new Map(lines(form.get("departments")).map((x) => [x.toLowerCase(), x])).values()];
-  const hcRaw = String(form.get("headcount") ?? "").trim();
-  const headcount = hcRaw ? z.coerce.number().int().min(0).parse(hcRaw) : null;
-  let areaHeadcount: Record<string, number> = {};
-  try {
-    const parsed = z.record(z.string(), z.coerce.number().int().min(0)).parse(JSON.parse(String(form.get("areaHeadcount") || "{}")));
-    areaHeadcount = Object.fromEntries(Object.entries(parsed).filter(([k]) => departments.some((x) => x === k.trim())));
-  } catch { areaHeadcount = {}; }
-  // La plantilla capturada actualiza el centro de trabajo y queda como foto de esta evaluación.
-  if (headcount != null) await db.update(schema.workplaces).set({ headcount }).where(eq(schema.workplaces.id, d.workplaceId));
-  for (const [name, n] of Object.entries(areaHeadcount)) {
-    await db.insert(schema.workplaceAreas).values({ workplaceId: d.workplaceId, name, headcount: n })
-      .onConflictDoUpdate({ target: [schema.workplaceAreas.workplaceId, schema.workplaceAreas.name], set: { headcount: n } });
-  }
+  // La plantilla (total y áreas) se toma de la Estructura del centro y queda como foto de esta evaluación.
+  const [wp, areaRows] = await Promise.all([
+    db.query.workplaces.findFirst({ where: eq(schema.workplaces.id, d.workplaceId) }),
+    db.query.workplaceAreas.findMany({ where: eq(schema.workplaceAreas.workplaceId, d.workplaceId) }),
+  ]);
+  if (!wp) throw new Error("Centro no encontrado");
+  const departments = areaRows.length ? areaRows.map((a) => a.name) : [...new Map(lines(form.get("departments")).map((x) => [x.toLowerCase(), x])).values()];
+  const headcount = wp.headcount;
+  const areaHeadcount = Object.fromEntries(areaRows.map((a) => [a.name, a.headcount]));
   const [e] = await db.insert(schema.evaluations).values({
     ...d, token: createToken(), departments, positions: lines(form.get("positions")),
     headcount, areaHeadcount: Object.keys(areaHeadcount).length ? areaHeadcount : null,
@@ -116,7 +111,7 @@ export async function updateEvaluation(form: FormData) {
   const id = String(form.get("id"));
   await db.update(schema.evaluations).set({
     name: String(form.get("name")),
-    departments: lines(form.get("departments")),
+    ...(form.has("departments") ? { departments: lines(form.get("departments")) } : {}),
     positions: lines(form.get("positions")),
     includeGuideI: form.get("includeGuideI") === "on",
   }).where(eq(schema.evaluations.id, id));

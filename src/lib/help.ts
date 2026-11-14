@@ -4,7 +4,7 @@
  */
 export const HELP = {
   /* ---------- Cartera ---------- */
-  cartera: { title: "Cartera de clientes", text: "Vista general de todas las empresas que atiende: el resultado más reciente de cada una, el avance de la captura, los casos de Guía I pendientes y sus alertas.\nUse el buscador, el giro y los chips de nivel para filtrar, y “Ordenar” para ver primero las de mayor riesgo, más alertas o menor avance. Haga clic en una empresa para entrar a sus centros." },
+  cartera: { title: "Cartera de clientes", text: "Vista general de todas las empresas que atiende: el resultado más reciente de cada una, el avance de la captura, los casos de Guía I pendientes y sus alertas.\nUse el buscador, el giro y los chips de nivel para filtrar, y “Ordenar” para ver primero las de mayor riesgo, más alertas o menor avance. “+ Nuevo cliente” abre el asistente de alta." },
   "cartera.empresas": { title: "Empresas", text: "Número de empresas registradas y total de centros de trabajo. La NOM-035 se evalúa por centro de trabajo." },
   "cartera.respuestas": { title: "Respuestas", text: "Cuestionarios recibidos en la evaluación más reciente de cada centro de trabajo, sumados para toda la cartera." },
   "cartera.capturas": { title: "Capturas abiertas", text: "Evaluaciones con estado “Abierta”: el enlace del cuestionario acepta respuestas en este momento." },
@@ -13,14 +13,23 @@ export const HELP = {
   "cartera.tabla": { title: "Tabla de empresas", text: "Último resultado: el nivel más alto entre las evaluaciones recientes de los centros de la empresa (con al menos 5 respuestas).\nAlto+: porcentaje de trabajadores en nivel alto o muy alto.\nAvance: respuestas recibidas contra la muestra o plantilla requerida." },
 
   /* ---------- Empresa y centros ---------- */
-  empresa: { title: "Empresa", text: "Ficha de la empresa con sus centros de trabajo a la izquierda. Seleccione un centro para ver sus evaluaciones, su gestión preventiva (quejas y capacitación) y sus datos.\nCada evaluación tiene accesos directos a los seis módulos: Evaluación, Tablero, Informe, Programa, Quejas y capacitación, y Seguimiento Guía I." },
+  empresa: { title: "Empresa", text: "Ficha del cliente con cinco pestañas: Resumen, Estructura (centros y áreas), Evaluaciones, Gestión preventiva y Datos de la empresa.\nEmpiece por la Estructura: es el único lugar donde se capturan los centros de trabajo y sus áreas." },
+  "emp.resumen": { title: "Resumen", text: "Totales de la empresa y la evaluación más reciente de cada centro con sus seis módulos. Abajo, los pasos para trabajar con el cliente; se marcan en verde al completarse." },
+  "emp.estructura": { title: "Estructura", text: "Centros de trabajo con su número de trabajadores y sus áreas. Es la única fuente de áreas: el cuestionario, los filtros del tablero, la participación por área y la capacitación la toman de aquí.\nLas evaluaciones abiertas toman los cambios; las cerradas conservan la estructura del día en que se crearon." },
+  "emp.evaluaciones": { title: "Evaluaciones", text: "Todas las evaluaciones de la empresa agrupadas por centro, con su avance, calificación final y accesos a los seis módulos." },
+  "emp.gestion": { title: "Gestión preventiva", text: "Buzón de quejas y capacitación de cada centro. Haga clic en un centro para registrar o dar seguimiento." },
+  "emp.datos": { title: "Datos de la empresa", text: "Razón social, RFC, giro y contacto. El giro permite comparar contra empresas del mismo sector. La zona de riesgo elimina centros o la empresa completa (solo administrador)." },
   "empresa.centro": { title: "Centro de trabajo", text: "La NOM-035 se aplica por centro de trabajo. El número de trabajadores define la guía: hasta 15 solo Guía I y política; de 16 a 50 Guía II a todo el personal; más de 50 Guía III a una muestra representativa." },
-  "empresa.nuevocentro": { title: "Nuevo centro de trabajo", text: "Registre cada instalación (planta, oficina, sucursal) por separado. Así puede compararlas entre sí en el Comparativo y la norma se cumple por centro." },
+  "empresa.nuevocentro": { title: "Nuevo centro de trabajo", text: "Registre cada instalación (planta, oficina, sucursal) por separado con sus áreas. Así puede compararlas entre sí y la norma se cumple por centro." },
+  wizard: { title: "Nuevo cliente", text: "Da de alta al cliente completo en cuatro pasos: datos de la empresa, centros con sus áreas, primera evaluación y enlaces listos para compartir.\nPuede pegar la estructura desde Excel en el paso 2." },
+  "wz.empresa": { title: "Datos de la empresa", text: "Razón social, RFC, giro o sector y contacto. Solo el nombre es obligatorio; el giro permite compararla contra su sector." },
+  "wz.centros": { title: "Centros y plantilla", text: "Cada planta, oficina o sucursal con su número de trabajadores y sus áreas. La guía y la muestra se calculan solas por centro. Use “Pegar desde Excel” con columnas Centro · Área · Trabajadores." },
+  "wz.evaluacion": { title: "Primera evaluación", text: "Elija en qué centros crear la evaluación ahora. La guía se sugiere por el número de trabajadores; las áreas se toman de la estructura. Si la deja abierta, el enlace acepta respuestas desde hoy." },
 
   /* ---------- Nueva evaluación ---------- */
   nuevaeval: { title: "Nueva evaluación", text: "Configura una aplicación de los cuestionarios en este centro. Al crearla obtiene el enlace y el código QR para que el personal conteste, o puede importar respuestas desde Excel." },
   "ne.datos": { title: "Datos de la evaluación", text: "Un nombre que identifique el periodo (por ejemplo “Evaluación noviembre 2026”). Se usa en el tablero, el informe y para comparar periodos." },
-  "ne.plantilla": { title: "Plantilla del centro", text: "Total de trabajadores y cuántos hay en cada área al momento de esta evaluación.\nCon el total se elige la guía y se calcula la meta de cuestionarios; con las áreas se mide la participación y representatividad por área. Queda guardada como foto de esta evaluación." },
+  "ne.plantilla": { title: "Plantilla del centro", text: "Se toma de la Estructura de la empresa: total de trabajadores y áreas con su número de personas. Si algo cambió, corríjalo en la Estructura antes de crear la evaluación.\nQueda guardada como foto de esta evaluación." },
   "ne.cuestionario": { title: "Cuestionario", text: "Guía II (46 reactivos): centros de 16 a 50 trabajadores, se aplica a todos.\nGuía III (72 reactivos): más de 50 trabajadores, se aplica a una muestra y agrega el entorno organizacional.\nLa Guía I (acontecimientos traumáticos severos) se recomienda siempre." },
   "ne.puestos": { title: "Tipos de puesto", text: "Opciones que verá el trabajador en “Tipo de puesto”. También son filtros del tablero para comparar resultados entre niveles de puesto." },
   "ne.resumen": { title: "Resumen", text: "Se actualiza mientras captura: total de trabajadores, áreas, guía elegida y la meta de cuestionarios que debe alcanzar." },
@@ -29,7 +38,7 @@ export const HELP = {
   "mod.evaluacion": { title: "Módulo 1 · Evaluación", text: "Aquí se recolectan las respuestas: comparta el enlace o el QR, importe archivos de Excel y revise el avance contra la muestra mínima. También se configuran las áreas y puestos del cuestionario." },
   "ev.enlace": { title: "Enlace del cuestionario", text: "Comparta este enlace o el código QR con el personal. Cada quien contesta desde su celular o computadora, de forma anónima.\nLa evaluación debe estar “Abierta” para recibir respuestas; ciérrela al terminar." },
   "ev.excel": { title: "Subir respuestas desde Excel", text: "Para cuestionarios aplicados en papel o en otra herramienta. Descargue la plantilla, capture una fila por trabajador y súbala aquí. La plataforma valida y califica cada fila." },
-  "ev.config": { title: "Configuración", text: "Nombre, áreas, puestos y si incluye la Guía I. Las áreas y puestos son las opciones del cuestionario y los filtros del tablero." },
+  "ev.config": { title: "Configuración", text: "Nombre, puestos y si incluye la Guía I. Las áreas vienen de la Estructura del centro: mientras la evaluación no esté cerrada, toma los cambios que haga ahí." },
   "ev.avance": { title: "Avance de la captura", text: "Respuestas recibidas contra la meta: en Guía III la muestra mínima representativa (95% de confianza); en Guía II toda la plantilla." },
 
   /* ---------- Módulo 2 · Tablero ---------- */
@@ -102,7 +111,7 @@ export const HELP = {
 
   /* ---------- Módulo 5 · Quejas y capacitación ---------- */
   "mod.gestion": { title: "Módulo 5 · Quejas y capacitación", text: "Gestión preventiva del centro de trabajo: plantilla por área, buzón de quejas y registro de capacitaciones. Alimenta los KPIs de centro." },
-  "ge.plantilla": { title: "Plantilla por área", text: "Número de trabajadores de cada área. Permite medir la participación por área y la cobertura de capacitación. Se captura al crear cada evaluación y aquí se corrige." },
+  "ge.plantilla": { title: "Plantilla por área", text: "Número de trabajadores de cada área, tomado de la Estructura de la empresa. Permite medir la participación por área y la cobertura de capacitación. Para cambiarla use “Editar en Estructura”." },
   "ge.quejas": { title: "Buzón de quejas", text: "Registro de quejas de prácticas opuestas al entorno favorable o actos de violencia laboral (numeral 8.1). Dé seguimiento hasta cerrarlas; las quejas abiertas por más de 30 días generan alerta." },
   "ge.capacitacion": { title: "Capacitación y sensibilización", text: "Sesiones impartidas, área, asistentes y, si aplica, evaluación antes y después. Sirve para demostrar la difusión de la política (numeral 5.7) y medir su efectividad." },
 
