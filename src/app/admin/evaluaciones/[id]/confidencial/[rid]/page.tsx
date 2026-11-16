@@ -43,9 +43,10 @@ export default async function WorkerSheet({ params }: { params: Promise<{ id: st
     if (hit) r = await db.query.responses.findFirst({ where: eq(schema.responses.id, hit.id) });
   }
   if (!ev || !r) notFound();
-  const [contact, follow] = await Promise.all([
+  const [contact, follow, ident] = await Promise.all([
     db.query.confidentialContacts.findFirst({ where: eq(schema.confidentialContacts.responseId, r.id) }),
     db.query.atsFollowups.findFirst({ where: eq(schema.atsFollowups.responseId, r.id) }),
+    db.query.respondentIdentities.findFirst({ where: eq(schema.respondentIdentities.responseId, r.id) }),
   ]);
   await audit(s, "view-worker-sheet", "response", r.id);
 
@@ -72,7 +73,7 @@ export default async function WorkerSheet({ params }: { params: Promise<{ id: st
         <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Ficha del trabajador · Confidencial</p>
         <div className="mt-1 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="flex items-center gap-2 text-2xl font-semibold text-gray-900">{contact?.name ?? "Trabajador anónimo"}<Help id="ficha" /></h1>
+            <h1 className="flex items-center gap-2 text-2xl font-semibold text-gray-900">{contact?.name ?? ident?.fullName ?? "Trabajador anónimo"}<Help id="ficha" /></h1>
             <p className="text-sm text-gray-500">{ev.workplace.company.name} · {ev.workplace.name} · {ev.name} · {g.name}</p>
           </div>
           <div className="text-right text-sm text-gray-600">
@@ -97,6 +98,15 @@ export default async function WorkerSheet({ params }: { params: Promise<{ id: st
 
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="card p-5">
+          {ident && (<>
+            <h2 className="mb-3 text-base font-semibold text-gray-900">Identificación</h2>
+            <dl className="mb-4 grid grid-cols-[minmax(0,11rem)_1fr] gap-x-3 gap-y-1.5 text-sm">
+              <dt className="text-gray-500">Nombre completo</dt><dd className="text-gray-900">{ident.fullName}</dd>
+              <dt className="text-gray-500">Centro de trabajo</dt><dd className="text-gray-900">{ident.workCenter}</dd>
+              <dt className="text-gray-500">Área de adscripción</dt><dd className="text-gray-900">{ident.area}</dd>
+              <dt className="text-gray-500">Puesto</dt><dd className="text-gray-900">{ident.position}</dd>
+              <dt className="text-gray-500">Tipo de plaza</dt><dd className="text-gray-900">{ident.positionType}</dd>
+            </dl></>)}
           <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-gray-900">Datos generales<Help id="fi.datos" /></h2>
           <dl className="grid grid-cols-[minmax(0,11rem)_1fr] gap-x-3 gap-y-1.5 text-sm">
             {DEMO_QUESTIONS.map((q) => <Fragment key={q.key}><dt className="text-gray-500">{q.label.replace(/ \(.*\)$/, "")}</dt><dd className="text-gray-900">{r.demographics[q.key] || "—"}</dd></Fragment>)}

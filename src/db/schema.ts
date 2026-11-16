@@ -92,6 +92,18 @@ export const confidentialContacts = pgTable("confidential_contacts", {
   createdAt: createdAt(),
 });
 
+/** Identificación del trabajador que capturó en línea. Igual que los contactos: nunca aparece en indicadores. */
+export const respondentIdentities = pgTable("respondent_identities", {
+  id: id(),
+  responseId: text("response_id").notNull().unique().references(() => responses.id, { onDelete: "cascade" }),
+  workCenter: text("work_center").notNull(),
+  positionType: text("position_type").notNull(),
+  fullName: text("full_name").notNull(),
+  position: text("position").notNull(),
+  area: text("area").notNull(),
+  createdAt: createdAt(),
+});
+
 /** Plantilla por área del centro de trabajo (participación, representatividad y cobertura). */
 export const workplaceAreas = pgTable("workplace_areas", {
   id: id(),
@@ -195,6 +207,10 @@ export const responsesRel = relations(responses, ({ one }) => ({
   evaluation: one(evaluations, { fields: [responses.evaluationId], references: [evaluations.id] }),
   confidential: one(confidentialContacts, { fields: [responses.id], references: [confidentialContacts.responseId] }),
   followup: one(atsFollowups, { fields: [responses.id], references: [atsFollowups.responseId] }),
+  identity: one(respondentIdentities, { fields: [responses.id], references: [respondentIdentities.responseId] }),
+}));
+export const identityRel = relations(respondentIdentities, ({ one }) => ({
+  response: one(responses, { fields: [respondentIdentities.responseId], references: [responses.id] }),
 }));
 export const confidentialRel = relations(confidentialContacts, ({ one }) => ({
   response: one(responses, { fields: [confidentialContacts.responseId], references: [responses.id] }),

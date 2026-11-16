@@ -3,7 +3,22 @@ import { useMemo, useState } from "react";
 import { ANSWERS } from "@/lib/nom035/guides";
 import { G1_SECTIONS } from "@/lib/nom035/guia1";
 import { DEMO_QUESTIONS, PHYSICAL_ITEMS, PHYSICAL_OPTIONS } from "@/lib/nom035/demographics";
+import { CATALOGO, TIPOS_PLAZA } from "@/lib/nom035/catalogo";
 import { submitSurvey } from "./actions";
+
+const OTRO = "__otro__";
+const IDENT_FIELDS = [
+  { key: "workCenter", label: "Centro de trabajo" },
+  { key: "positionType", label: "Tipo de plaza" },
+  { key: "fullName", label: "Nombre completo" },
+  { key: "position", label: "Puesto" },
+  { key: "area", label: "Área de adscripción" },
+] as const;
+type IdentKey = (typeof IDENT_FIELDS)[number]["key"];
+/** Valor elegido de la lista, o OTRO + texto libre. */
+type Pick = { choice: string; other: string };
+const emptyPick: Pick = { choice: "", other: "" };
+const pickValue = (x: Pick) => (x.choice === OTRO ? x.other.trim() : x.choice);
 
 type Section = { title: string; filter?: "clientes" | "jefe"; items: { n: number; text: string }[] };
 type Props = {
@@ -11,7 +26,7 @@ type Props = {
   includeGuideI: boolean; departments: string[]; positions: string[]; sections: Section[];
 };
 type Step =
-  | { kind: "intro" } | { kind: "demo" } | { kind: "physical" }
+  | { kind: "intro" } | { kind: "ident" } | { kind: "demo" } | { kind: "physical" }
   | { kind: "g1"; part: number } | { kind: "section"; idx: number } | { kind: "final" };
 
 const G1_OFFSET = [0, 6, 8, 15];
@@ -19,6 +34,9 @@ const G1_OFFSET = [0, 6, 8, 15];
 export default function Survey(p: Props) {
   const [stepIdx, setStepIdx] = useState(0);
   const [consent, setConsent] = useState(false);
+  const [ident, setIdent] = useState<Record<IdentKey, Pick>>({
+    workCenter: emptyPick, positionType: emptyPick, fullName: emptyPick, position: emptyPick, area: emptyPick,
+  });
   const [demo, setDemo] = useState<Record<string, string | null>>({});
   const [phys, setPhys] = useState<Record<string, string | null>>({});
   const [g1, setG1] = useState<(boolean | null)[]>(Array(20).fill(null));
@@ -33,7 +51,7 @@ export default function Survey(p: Props) {
 
   const g1Event = g1.slice(0, 6).some((x) => x === true);
   const steps: Step[] = useMemo(() => {
-    const s: Step[] = [{ kind: "intro" }, { kind: "demo" }, { kind: "physical" }];
+    const s: Step[] = [{ kind: "intro" }, { kind: "ident" }, { kind: "demo" }, { kind: "physical" }];
     if (p.includeGuideI) {
       s.push({ kind: "g1", part: 0 });
       if (g1Event) s.push({ kind: "g1", part: 1 }, { kind: "g1", part: 2 }, { kind: "g1", part: 3 });
@@ -49,8 +67,25 @@ export default function Survey(p: Props) {
     options: q.fromEvaluation ? (q.fromEvaluation === "departments" ? p.departments : p.positions) : q.options ?? [],
   })).filter((q) => q.options.length > 0);
 
+  // Al elegir un centro de trabajo solo se ofrecen sus áreas y puestos
+  const centro = CATALOGO.find((c) => c.centro === ident.workCenter.choice);
+  const identOptions: Record<IdentKey, string[] | null> = {
+    workCenter: CATALOGO.map((c) => c.centro), positionType: TIPOS_PLAZA, fullName: null,
+    position: centro?.puestos ?? [], area: centro?.areas ?? [],
+  };
+  const identity = Object.fromEntries(IDENT_FIELDS.map(({ key }) => [key, pickValue(ident[key])])) as Record<IdentKey, string>;
+  function setPick(key: IdentKey, v: Partial<Pick>) {
+    const next = { ...ident, [key]: { ...ident[key], ...v } };
+    // Si cambia el centro, el puesto y el área elegidos de la lista anterior ya no aplican
+    if (key === "workCenter" && v.choice !== undefined && v.choice !== ident.workCenter.choice) {
+      for (const k of ["position", "area"] as const) if (next[k].choice !== OTRO) next[k] = emptyPick;
+    }
+    setIdent(next);
+  }
+
   function validate(): string | null {
     if (step.kind === "intro" && !consent) return "Para continuar acepte el aviso de confidencialidad.";
+    if (step.kind === "ident") { const miss = IDENT_FIELDS.find(({ key }) => !identity[key]); if (miss) return `Complete: ${miss.label}.`; }
     if (step.kind === "demo") { const miss = demoQs.find((q) => !demo[q.key]); if (miss) return `Seleccione: ${miss.label}.`; }
     if (step.kind === "physical" && PHYSICAL_ITEMS.some((k) => !phys[k])) return "Califique todas las condiciones físicas.";
     if (step.kind === "g1") {
@@ -80,7 +115,7 @@ export default function Survey(p: Props) {
   async function send() {
     setSending(true); setError(null);
     const res = await submitSurvey(p.token, {
-      demographics: demo, physical: phys, items, servesClients, isBoss,
+      identity, demographics: demo, physical: phys, items, servesClients, isBoss,
       g1: g1Event ? g1 : g1.map((v, i) => (i < 6 ? v : null)),
       contactName: contactName || null, comment: comment || null,
     });
@@ -112,12 +147,50 @@ export default function Survey(p: Props) {
           <ul className="list-disc space-y-1 pl-5">
             <li>No hay respuestas correctas o incorrectas: conteste según su experiencia.</li>
             <li>Sus respuestas son <b>confidenciales</b> y los resultados se presentan de forma agrupada.</li>
+            <li>Se le pedirán sus datos de identificación; solo el personal responsable de la evaluación podrá verlos.</li>
             <li>Toma aproximadamente {p.guide === "GUIA_III" ? "20" : "12"} minutos.</li>
           </ul>
           <label className="flex items-start gap-3 rounded-lg bg-brand-50 p-3">
             <input type="checkbox" className="mt-1 h-5 w-5" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
             <span>He leído la información anterior y acepto participar de forma voluntaria.</span>
           </label>
+        </div>
+      )}
+
+      {step.kind === "ident" && (
+        <div className="space-y-5">
+          <SectionTitle title="Datos de identificación" subtitle="Solo el personal responsable de la evaluación puede verlos; no aparecen en los resultados." />
+          {IDENT_FIELDS.map(({ key, label }) => {
+            const opts = identOptions[key];
+            const v = ident[key];
+            const free = opts === null || opts.length === 0;
+            const waiting = (key === "position" || key === "area") && !ident.workCenter.choice;
+            return (
+              <div key={key}>
+                <label className="label" htmlFor={`id-${key}`}>{label}</label>
+                {free ? (
+                  <input id={`id-${key}`} className="input" maxLength={200} disabled={waiting} value={opts === null ? v.choice : v.other}
+                    placeholder={opts === null ? "" : key === "position" ? "Escriba su puesto" : "Escriba su área de adscripción"}
+                    onChange={(e) => setPick(key, opts === null ? { choice: e.target.value } : { choice: OTRO, other: e.target.value })} />
+                ) : (
+                  <>
+                    <select id={`id-${key}`} className="input" value={v.choice} onChange={(e) => setPick(key, { choice: e.target.value })}>
+                      <option value="">Seleccione…</option>
+                      {opts.map((o) => <option key={o} value={o}>{o}</option>)}
+                      <option value={OTRO}>Otro (no aparece en la lista)</option>
+                    </select>
+                    {v.choice === OTRO && (
+                      <input className="input mt-2" maxLength={200} autoFocus placeholder={`Escriba su ${label.toLowerCase()}`}
+                        value={v.other} onChange={(e) => setPick(key, { other: e.target.value })} />
+                    )}
+                  </>
+                )}
+                {waiting && (
+                  <p className="mt-1 text-xs text-gray-500">Primero seleccione su centro de trabajo.</p>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 

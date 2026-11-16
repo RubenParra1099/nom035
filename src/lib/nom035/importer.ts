@@ -12,6 +12,16 @@ export interface NormalizedResponse {
   g1: (boolean | null)[];
   contactName: string | null;
   comment: string | null;
+  /** Solo captura en línea: centro de trabajo, tipo de plaza, nombre, puesto y área de adscripción. */
+  identity?: RespondentIdentity | null;
+}
+
+export interface RespondentIdentity {
+  workCenter: string;
+  positionType: string;
+  fullName: string;
+  position: string;
+  area: string;
 }
 
 export const DEMOGRAPHIC_FIELDS: { key: string; label: string; match: RegExp }[] = [

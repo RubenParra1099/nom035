@@ -5,7 +5,9 @@ import { db, schema } from "@/db";
 import { GUIDES } from "@/lib/nom035/guides";
 import { saveResponse } from "@/lib/results";
 
+const req = z.string().trim().min(1).max(200);
 const Payload = z.object({
+  identity: z.object({ workCenter: req, positionType: req, fullName: req, position: req, area: req }),
   demographics: z.record(z.string(), z.string().max(200).nullable()),
   physical: z.record(z.string(), z.string().max(50).nullable()),
   items: z.record(z.string(), z.number().int().min(0).max(4).nullable()),
@@ -20,7 +22,7 @@ export async function submitSurvey(token: string, raw: unknown) {
   const ev = await db.query.evaluations.findFirst({ where: eq(schema.evaluations.token, token) });
   if (!ev || ev.status !== "ABIERTA") return { error: "El cuestionario no está disponible." };
   const p = Payload.safeParse(raw);
-  if (!p.success) return { error: "Respuestas incompletas o inválidas." };
+  if (!p.success) return { error: p.error.issues.some((i) => i.path[0] === "identity") ? "Complete sus datos de identificación." : "Respuestas incompletas o inválidas." };
   const d = p.data;
   const g = GUIDES[ev.guide];
   if (d.servesClients === null || d.isBoss === null) return { error: "Responda las preguntas de clientes y personal a cargo." };
@@ -33,6 +35,7 @@ export async function submitSurvey(token: string, raw: unknown) {
     submittedAt: new Date(), demographics: d.demographics, physical: d.physical, items,
     servesClients: d.servesClients, isBoss: d.isBoss, g1: ev.includeGuideI ? d.g1 : Array(20).fill(null),
     contactName: d.contactName?.trim() || null, comment: d.comment?.trim() || null,
+    identity: d.identity,
   }, "EN_LINEA");
   return { ok: true };
 }

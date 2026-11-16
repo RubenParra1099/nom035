@@ -2,7 +2,7 @@ import Help from "@/components/ui/Help";
 import Link from "next/link";
 import EvalHeader from "@/components/EvalHeader";
 import { notFound } from "next/navigation";
-import { and, desc, eq, or } from "drizzle-orm";
+import { and, asc, desc, eq, or } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { requireUser } from "@/lib/auth";
 import { toggleAttended } from "../../../actions";
@@ -22,16 +22,22 @@ export default async function ConfidentialPage({ params, searchParams }: { param
   await requireUser(["SUPERADMIN", "CONSULTOR"]);
   const ev = await db.query.evaluations.findFirst({ where: eq(schema.evaluations.id, id), with: { workplace: { with: { company: true } } } });
   if (!ev) notFound();
-  const rows = await db.select({ r: schema.responses, c: schema.confidentialContacts, f: schema.atsFollowups })
+  const rows = await db.select({ r: schema.responses, c: schema.confidentialContacts, f: schema.atsFollowups, i: schema.respondentIdentities })
     .from(schema.responses)
     .leftJoin(schema.confidentialContacts, eq(schema.confidentialContacts.responseId, schema.responses.id))
     .leftJoin(schema.atsFollowups, eq(schema.atsFollowups.responseId, schema.responses.id))
+    .leftJoin(schema.respondentIdentities, eq(schema.respondentIdentities.responseId, schema.responses.id))
     .where(and(eq(schema.responses.evaluationId, id), or(eq(schema.responses.atsRequires, true), eq(schema.responses.atsEvent, true))))
     .orderBy(desc(schema.responses.atsRequires), desc(schema.responses.submittedAt));
   const others = await db.select({ r: schema.responses, c: schema.confidentialContacts })
     .from(schema.confidentialContacts)
     .innerJoin(schema.responses, eq(schema.confidentialContacts.responseId, schema.responses.id))
     .where(and(eq(schema.responses.evaluationId, id), eq(schema.responses.atsEvent, false)));
+  const participants = await db.select({ rid: schema.responses.id, i: schema.respondentIdentities })
+    .from(schema.respondentIdentities)
+    .innerJoin(schema.responses, eq(schema.respondentIdentities.responseId, schema.responses.id))
+    .where(eq(schema.responses.evaluationId, id))
+    .orderBy(asc(schema.respondentIdentities.workCenter), asc(schema.respondentIdentities.area), asc(schema.respondentIdentities.fullName));
   const path = `/admin/evaluaciones/${id}/confidencial`;
   const today = new Date().toISOString().slice(0, 10);
   const cases = rows.filter((x) => x.f);
@@ -76,13 +82,13 @@ export default async function ConfidentialPage({ params, searchParams }: { param
         <table className="mt-3 w-full min-w-[860px]">
           <thead className="border-b border-gray-100"><tr><th className="th">Trabajador</th><th className="th">Área</th><th className="th">Guía I</th><th className="th">Estado</th><th className="th">Tiempo</th><th className="th">Institución y notas</th><th className="th"></th></tr></thead>
           <tbody className="divide-y divide-gray-100">
-            {shown.map(({ r, c, f }) => {
+            {shown.map(({ r, c, f, i }) => {
               const d = f ? days(f.identifiedAt, f.canalizedAt ?? today) : null;
               const late = f && !f.canalizedAt && d! > 15;
               return (
                 <tr key={r.id} className={late ? "bg-red-50/40" : ""}>
-                  <td className="td"><Link href={`${path}/${r.id}`} className="font-medium text-brand-700 hover:underline">{c?.name ?? "Anónimo"}</Link><div className="text-xs text-gray-400">Ver ficha →</div></td>
-                  <td className="td">{r.demographics.departamento ?? "—"}<div className="text-xs text-gray-500">{r.demographics.puesto}</div></td>
+                  <td className="td"><Link href={`${path}/${r.id}`} className="font-medium text-brand-700 hover:underline">{c?.name ?? i?.fullName ?? "Anónimo"}</Link><div className="text-xs text-gray-400">Ver ficha →</div></td>
+                  <td className="td">{i?.area ?? r.demographics.departamento ?? "—"}<div className="text-xs text-gray-500">{i?.position ?? r.demographics.puesto}</div></td>
                   <td className="td">{r.atsRequires ? <span className="text-sm font-semibold text-red-600">Requiere valoración</span> : <span className="text-sm text-gray-600">Vivió ATS, sin criterios</span>}</td>
                   <td className="td">{f ? <Pill tone={ATS_TONE[f.status]}>{ATS_STATUS[f.status]}</Pill> : c ? <Pill tone={c.attended ? "green" : "amber"}>{c.attended ? "Atendido" : "Solicitó atención"}</Pill> : <span className="text-xs text-gray-500">Sin seguimiento requerido</span>}</td>
                   <td className={`td whitespace-nowrap text-sm tabular-nums ${late ? "font-semibold text-red-600" : "text-gray-700"}`}>
@@ -91,7 +97,7 @@ export default async function ConfidentialPage({ params, searchParams }: { param
                   <td className="td max-w-[14rem] text-sm text-gray-700">{f?.institution ?? ""}{(f?.notes || c?.notes) && <div className="truncate text-xs text-gray-500" title={f?.notes || c?.notes || ""}>{f?.notes || c?.notes}</div>}{!f?.institution && !f?.notes && !c?.notes && <span className="text-gray-400">—</span>}</td>
                   <td className="td text-right">
                     {f ? (
-                      <Drawer trigger="Actualizar" triggerClass="text-sm font-medium text-brand-700 hover:underline" title="Seguimiento del caso" subtitle={`${c?.name ?? "Trabajador anónimo"} · ${r.demographics.departamento ?? ""}`}>
+                      <Drawer trigger="Actualizar" triggerClass="text-sm font-medium text-brand-700 hover:underline" title="Seguimiento del caso" subtitle={`${c?.name ?? i?.fullName ?? "Trabajador anónimo"} · ${i?.area ?? r.demographics.departamento ?? ""}`}>
                         <form action={updateAts} className="space-y-4">
                           <input type="hidden" name="id" value={f.id} /><input type="hidden" name="path" value={path} />
                           <div><label className="label">Estado</label><select name="status" defaultValue={f.status} className="input">{Object.entries(ATS_STATUS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>
@@ -135,6 +141,25 @@ export default async function ConfidentialPage({ params, searchParams }: { param
             ))}
           </tbody></table>
         </div>
+      )}
+      {participants.length > 0 && (
+        <details className="card overflow-x-auto">
+          <summary className="cursor-pointer px-4 py-3 font-semibold">Participantes identificados <span className="font-normal tabular-nums text-gray-500">{participants.length}</span></summary>
+          <table className="w-full min-w-[760px]">
+            <thead className="border-y border-gray-100"><tr><th className="th">Nombre completo</th><th className="th">Centro de trabajo</th><th className="th">Área de adscripción</th><th className="th">Puesto</th><th className="th">Tipo de plaza</th></tr></thead>
+            <tbody className="divide-y divide-gray-100">
+              {participants.map(({ rid, i }) => (
+                <tr key={rid}>
+                  <td className="td"><Link href={`${path}/${rid}`} className="font-medium text-brand-700 hover:underline">{i.fullName}</Link></td>
+                  <td className="td text-sm">{i.workCenter}</td>
+                  <td className="td text-sm">{i.area}</td>
+                  <td className="td text-sm">{i.position}</td>
+                  <td className="td text-sm">{i.positionType}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </details>
       )}
     </div>
   );

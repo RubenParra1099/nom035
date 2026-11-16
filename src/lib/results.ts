@@ -25,6 +25,7 @@ export async function saveResponse(
     comment: r.comment,
   }).returning({ id: schema.responses.id });
   if (r.contactName) await db.insert(schema.confidentialContacts).values({ responseId: row.id, name: r.contactName });
+  if (r.identity) await db.insert(schema.respondentIdentities).values({ responseId: row.id, ...r.identity });
   if (ats.requiresEvaluation) await db.insert(schema.atsFollowups).values({ responseId: row.id });
   return row.id;
 }
