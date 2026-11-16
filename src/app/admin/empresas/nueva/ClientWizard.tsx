@@ -23,7 +23,7 @@ const STEPS = [
 
 export default function ClientWizard() {
   const [step, setStep] = useState(0);
-  const [company, setCompany] = useState({ name: "", rfc: "", contact: "", sector: "" });
+  const [company, setCompany] = useState({ name: "", rfc: "", contact: "", sector: "", headcount: "" });
   const [centros, setCentros] = useState<Centro[]>([blank(1)]);
   const [openKey, setOpenKey] = useState(1);
   const [paste, setPaste] = useState<string | null>(null);
@@ -74,13 +74,14 @@ export default function ClientWizard() {
     toast(`${rows.length} áreas pegadas`);
   }
 
-  function submit() {
+  /** withCentros = false guarda solo la empresa (con su total de trabajadores); los centros se capturan después. */
+  function submit(withCentros = true) {
     setError(null);
     start(async () => {
       try {
         const r = await createClient({
-          company: { name: company.name, rfc: company.rfc || undefined, contact: company.contact || undefined, sector: company.sector || undefined },
-          centros: valid.map((c) => ({ name: c.name.trim(), address: c.address.trim() || null, headcount: num(c.total), areas: cleanAreas(c.rows), evaluate: c.evaluate, guide: c.guide || undefined })),
+          company: { name: company.name, rfc: company.rfc || undefined, contact: company.contact || undefined, sector: company.sector || undefined, headcount: company.headcount ? num(company.headcount) : undefined },
+          centros: !withCentros ? [] : valid.map((c) => ({ name: c.name.trim(), address: c.address.trim() || null, headcount: num(c.total), areas: cleanAreas(c.rows), evaluate: c.evaluate, guide: c.guide || undefined })),
           evaluation: ev,
         });
         setResult(r); setStep(3);
@@ -120,8 +121,14 @@ export default function ClientWizard() {
                 <div className="md:col-span-2"><label className="label" htmlFor="cname">Razón social / nombre</label><input id="cname" className="input" autoFocus value={company.name} onChange={(e) => setCompany({ ...company, name: e.target.value })} placeholder="Ej. Constructora del Norte SA de CV" /></div>
                 <div><label className="label" htmlFor="rfc">RFC</label><input id="rfc" className="input" value={company.rfc} onChange={(e) => setCompany({ ...company, rfc: e.target.value.toUpperCase() })} /></div>
                 <div><label className="label" htmlFor="sector">Giro o sector</label><select id="sector" className="input" value={company.sector} onChange={(e) => setCompany({ ...company, sector: e.target.value })}><option value="">Sin especificar</option>{SECTORS.map((x) => <option key={x}>{x}</option>)}</select></div>
-                <div className="md:col-span-2"><label className="label" htmlFor="contact">Contacto</label><input id="contact" className="input" value={company.contact} onChange={(e) => setCompany({ ...company, contact: e.target.value })} placeholder="Nombre, correo o teléfono" /></div>
+                <div><label className="label" htmlFor="contact">Contacto</label><input id="contact" className="input" value={company.contact} onChange={(e) => setCompany({ ...company, contact: e.target.value })} placeholder="Nombre, correo o teléfono" /></div>
+                <div><label className="label" htmlFor="headcount">Total de trabajadores</label><input id="headcount" type="number" min={0} className="input text-right" value={company.headcount} onChange={(e) => setCompany({ ...company, headcount: e.target.value })} placeholder="Ej. 250" />
+                  <p className="mt-1 text-xs text-gray-500">De toda la empresa o cliente. Se usa como referencia al distribuir la plantilla entre sus centros.</p></div>
               </div>
+              <div className="rounded-xl bg-surface-2 p-3 text-sm text-gray-700">
+                Puede <b>guardar la empresa ahora</b> y capturar sus centros de trabajo después (desde la pestaña Estructura o pegándolos de Excel), o <b>continuar</b> para capturarlos en este momento.
+              </div>
+              {error && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
             </div>
           )}
 
@@ -215,8 +222,11 @@ export default function ClientWizard() {
             <div className="mt-6 flex justify-between gap-2 border-t border-line pt-5">
               {step > 0 ? <button type="button" className="btn-secondary" onClick={() => setStep(step - 1)}>← {STEPS[step - 1][0]}</button> : <span />}
               {step < 2
-                ? <button type="button" className="btn-primary" disabled={!can[step]} onClick={() => setStep(step + 1)}>Continuar: {STEPS[step + 1][0].toLowerCase()} →</button>
-                : <button type="button" className="btn-primary" disabled={pending} onClick={submit}>{pending ? "Creando…" : "Crear cliente"}</button>}
+                ? <span className="flex flex-wrap justify-end gap-2">
+                    {step === 0 && <button type="button" className="btn-secondary" disabled={!can[0] || pending} onClick={() => submit(false)}>{pending ? "Guardando…" : "Guardar empresa sin centros"}</button>}
+                    <button type="button" className="btn-primary" disabled={!can[step] || pending} onClick={() => setStep(step + 1)}>Continuar: {STEPS[step + 1][0].toLowerCase()} →</button>
+                  </span>
+                : <button type="button" className="btn-primary" disabled={pending} onClick={() => submit()}>{pending ? "Creando…" : "Crear cliente"}</button>}
             </div>
           )}
         </div>
@@ -225,7 +235,7 @@ export default function ClientWizard() {
           <div className="card p-5">
             <h2 className="text-sm font-semibold text-ink">Resumen del cliente</h2>
             <dl className="mt-3 space-y-2 text-sm">
-              {([["Empresa", company.name || "—"], ["Giro", company.sector || "—"], ["Centros", valid.length], ["Trabajadores", totals.trab], ["Áreas", totals.areas], ["Cuestionarios a aplicar", totals.cuest]] as const).map(([k, v]) => (
+              {([["Empresa", company.name || "—"], ["Giro", company.sector || "—"], ["Centros", valid.length], ["Trabajadores", valid.length ? (company.headcount ? `${totals.trab} de ${num(company.headcount)}` : totals.trab) : num(company.headcount)], ["Áreas", totals.areas], ["Cuestionarios a aplicar", totals.cuest]] as const).map(([k, v]) => (
                 <div key={k} className="flex justify-between gap-3"><dt className="text-gray-500">{k}</dt><dd className={`text-right font-semibold ${k === "Cuestionarios a aplicar" ? "text-brand-700" : "text-ink"}`}>{v}</dd></div>
               ))}
             </dl>
@@ -246,7 +256,7 @@ function Done({ result }: { result: WizardResult }) {
   }, [result]);
   return (
     <div className="space-y-4">
-      <div className="rounded-xl bg-green-50 p-4 text-green-800 dark:bg-green-950/30"><b>✓ Cliente creado.</b> {result.evaluations.length ? "Comparta el enlace o el código QR de cada evaluación con el personal." : "Cree las evaluaciones cuando esté listo desde la pestaña Estructura."}</div>
+      <div className="rounded-xl bg-green-50 p-4 text-green-800 dark:bg-green-950/30"><b>✓ Cliente creado.</b> {result.evaluations.length ? "Comparta el enlace o el código QR de cada evaluación con el personal." : result.centros ? "Cree las evaluaciones cuando esté listo desde la pestaña Estructura." : "Capture sus centros de trabajo cuando los tenga desde la pestaña Estructura (uno por uno o pegándolos de Excel)."}</div>
       <div className="grid gap-3 md:grid-cols-2">
         {result.evaluations.map((e) => {
           const url = `${origin}/e/${e.token}`;
@@ -267,7 +277,7 @@ function Done({ result }: { result: WizardResult }) {
           );
         })}
       </div>
-      <div className="flex justify-end"><Link href={`/admin/empresas/${result.companyId}?tab=resumen&creado=1`} className="btn-primary">Ir a la empresa →</Link></div>
+      <div className="flex justify-end"><Link href={result.centros ? `/admin/empresas/${result.companyId}?tab=resumen&creado=1` : `/admin/empresas/${result.companyId}?tab=estructura`} className="btn-primary">Ir a la empresa →</Link></div>
     </div>
   );
 }

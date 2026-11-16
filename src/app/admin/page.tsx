@@ -51,8 +51,9 @@ export default async function CompaniesPage() {
     }
     const al = alerts.filter((a) => a.company === c.name);
     return {
-      id: c.id, name: c.name, sector: c.sector, rfc: c.rfc, contact: c.contact, centros: c.workplaces.length,
-      trabajadores: c.workplaces.reduce((t, w) => t + w.headcount, 0),
+      id: c.id, name: c.name, sector: c.sector, rfc: c.rfc, contact: c.contact, headcount: c.headcount, centros: c.workplaces.length,
+      // Sin centros capturados se muestra el total que declaró el cliente
+      trabajadores: c.workplaces.length ? c.workplaces.reduce((t, w) => t + w.headcount, 0) : c.headcount ?? 0,
       evaluaciones: c.workplaces.reduce((t, w) => t + w.evaluations.length, 0), openEvals,
       respuestas: n, avance: target ? Math.min(100, Math.round((n / target) * 100)) : null,
       latest: latestName ? { name: latestName, date: new Date(latestDate).toISOString().slice(0, 10) } : null,

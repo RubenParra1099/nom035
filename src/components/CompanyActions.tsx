@@ -4,7 +4,7 @@ import { Drawer, SaveButton } from "@/components/ui/forms";
 import { deleteCompany, updateCompany } from "@/app/admin/actions";
 import { SECTORS } from "@/lib/sectors";
 
-export type CompanyInfo = { id: string; name: string; rfc: string | null; contact: string | null; sector: string | null; centros: number; evaluaciones: number; respuestas: number | null };
+export type CompanyInfo = { id: string; name: string; rfc: string | null; contact: string | null; sector: string | null; headcount?: number | null; centros: number; evaluaciones: number; respuestas: number | null };
 
 /** Formulario de edición de los datos de la empresa (se usa en el panel lateral y en la pestaña Datos). */
 export function CompanyForm({ c }: { c: CompanyInfo }) {
@@ -16,7 +16,10 @@ export function CompanyForm({ c }: { c: CompanyInfo }) {
         <div><label className="label">RFC</label><input name="rfc" className="input uppercase" defaultValue={c.rfc ?? ""} /></div>
         <div><label className="label">Giro o sector</label><select name="sector" className="input" defaultValue={c.sector ?? ""}><option value="">Sin especificar</option>{SECTORS.map((x) => <option key={x}>{x}</option>)}</select></div>
       </div>
-      <div><label className="label">Contacto</label><input name="contact" className="input" defaultValue={c.contact ?? ""} placeholder="Nombre, correo o teléfono" /></div>
+      <div className="grid gap-4 sm:grid-cols-[1fr_10rem]">
+        <div><label className="label">Contacto</label><input name="contact" className="input" defaultValue={c.contact ?? ""} placeholder="Nombre, correo o teléfono" /></div>
+        <div><label className="label">Total de trabajadores</label><input name="headcount" type="number" min={0} className="input text-right" defaultValue={c.headcount ?? ""} /></div>
+      </div>
       <p className="text-xs text-gray-500">El giro permite comparar a la empresa contra otras de su sector en el Comparativo.</p>
       <div className="flex justify-end border-t border-line pt-4"><SaveButton done="Empresa actualizada ✓">Guardar cambios</SaveButton></div>
     </form>

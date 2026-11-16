@@ -66,7 +66,10 @@ export default async function CompanyPage({ params, searchParams }: {
     trab: wps.reduce((t, w) => t + w.headcount, 0), areas: wps.reduce((t, w) => t + w.areas.length, 0),
     evals: evalIds.length, resp: counts.reduce((t, c) => t + c.n, 0),
   };
-  const info: CompanyInfo = { id: company.id, name: company.name, rfc: company.rfc, contact: company.contact, sector: company.sector, centros: wps.length, evaluaciones: totals.evals, respuestas: totals.resp };
+  // Total que declaró el cliente al darse de alta; mientras no haya centros es la única cifra de plantilla
+  const declared = company.headcount;
+  const trabShown = wps.length ? totals.trab : declared ?? 0;
+  const info: CompanyInfo = { id: company.id, name: company.name, rfc: company.rfc, contact: company.contact, sector: company.sector, headcount: company.headcount, centros: wps.length, evaluaciones: totals.evals, respuestas: totals.resp };
   const gestion = tab === "gestion" && wps.length ? await Promise.all(wps.map(async (w) => {
     const [[c], [t]] = await Promise.all([
       db.select({ n: sql<number>`count(*)::int`, open: sql<number>`count(*) filter (where ${schema.complaints.status} <> 'CERRADA')::int` }).from(schema.complaints).where(eq(schema.complaints.workplaceId, w.id)),
@@ -87,7 +90,7 @@ export default async function CompanyPage({ params, searchParams }: {
         <div>
           <nav aria-label="Ruta" className="text-sm text-gray-500"><Link href="/admin" className="hover:text-gray-900">Empresas</Link> › <span>{company.name}</span></nav>
           <h1 className="flex items-center gap-2 text-2xl font-semibold text-ink">{company.name}<Help id="empresa" /></h1>
-          <p className="text-sm text-gray-500">{[company.sector ?? "Giro sin especificar", company.rfc, `${wps.length} ${wps.length === 1 ? "centro" : "centros"}`, `${totals.trab} trabajadores`, `${totals.areas} áreas`].filter(Boolean).join(" · ")}</p>
+          <p className="text-sm text-gray-500">{[company.sector ?? "Giro sin especificar", company.rfc, `${wps.length} ${wps.length === 1 ? "centro" : "centros"}`, `${trabShown.toLocaleString("es-MX")} trabajadores`, `${totals.areas} áreas`].filter(Boolean).join(" · ")}</p>
         </div>
         {edit && <div className="flex flex-wrap items-center gap-2">
           <CompanyActions c={info} canDelete={s.role === "SUPERADMIN"} />
@@ -113,7 +116,7 @@ export default async function CompanyPage({ params, searchParams }: {
       {tab === "resumen" && (
         <div className="space-y-5">
           <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-            {([["Centros de trabajo", wps.length], ["Trabajadores", totals.trab], ["Áreas", totals.areas], ["Evaluaciones", totals.evals], ["Respuestas", totals.resp]] as const).map(([l, v]) => (
+            {([["Centros de trabajo", wps.length], ["Trabajadores", trabShown], ["Áreas", totals.areas], ["Evaluaciones", totals.evals], ["Respuestas", totals.resp]] as const).map(([l, v]) => (
               <div key={l} className="card p-4"><div className="text-xs font-medium text-gray-500">{l}</div><div className="mt-1 text-2xl font-semibold tabular-nums text-ink">{v.toLocaleString("es-MX")}</div></div>
             ))}
           </div>
@@ -157,6 +160,16 @@ export default async function CompanyPage({ params, searchParams }: {
             <span className="min-w-0 flex-1"><span className="mr-1 text-green-700">✓</span><b className="text-ink">La estructura es el único lugar donde se capturan centros y áreas.</b> <span className="text-gray-600">Las evaluaciones, el cuestionario, los filtros del tablero y la capacitación la toman de aquí. Cada evaluación guarda una foto de la estructura del día en que se crea.</span></span>
             {edit && <ImportStructure companyId={company.id} />}
           </div>
+          {declared != null && declared > 0 && (
+            <div className={`card p-4 text-sm ${totals.trab === declared ? "border-green-200" : "border-amber-200 bg-amber-50/60 dark:bg-amber-950/20"}`}>
+              <b className="text-ink">Plantilla declarada por el cliente: {declared.toLocaleString("es-MX")} trabajadores.</b>{" "}
+              <span className="text-gray-600">{!wps.length
+                ? "Aún no hay centros de trabajo; captúrelos con “+ Agregar centro de trabajo” o péguelos desde Excel para distribuir la plantilla."
+                : totals.trab === declared ? "Los centros capturados cubren la plantilla completa ✓"
+                : totals.trab < declared ? `Los centros capturados suman ${totals.trab.toLocaleString("es-MX")}; faltan ${(declared - totals.trab).toLocaleString("es-MX")} por asignar a un centro.`
+                : `Los centros capturados suman ${totals.trab.toLocaleString("es-MX")}, ${(totals.trab - declared).toLocaleString("es-MX")} más que lo declarado.`}</span>
+            </div>
+          )}
           <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
             {wps.map((w) => {
               const sum = w.areas.reduce((t, a) => t + a.headcount, 0);

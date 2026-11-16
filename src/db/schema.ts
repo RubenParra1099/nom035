@@ -17,6 +17,8 @@ export const companies = pgTable("companies", {
   contact: text("contact"),
   /** Giro o sector, para el comparativo entre clientes. */
   sector: text("sector"),
+  /** Total de trabajadores que declara el cliente al darse de alta (los centros se pueden capturar después). */
+  headcount: integer("headcount"),
   createdAt: createdAt(),
 });
 

@@ -64,6 +64,13 @@
       "when": 1794856065844,
       "tag": "0008_identificacion",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1794858749385,
+      "tag": "0009_total_trabajadores_empresa",
+      "breakpoints": true
     }
   ]
 }

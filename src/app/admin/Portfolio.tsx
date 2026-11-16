@@ -6,7 +6,7 @@ import { LEVEL_LABEL, type Level } from "@/lib/nom035/guides";
 import CompanyActions from "@/components/CompanyActions";
 
 export type PortfolioRow = {
-  id: string; name: string; sector: string | null; rfc: string | null; contact: string | null; centros: number; trabajadores: number;
+  id: string; name: string; sector: string | null; rfc: string | null; contact: string | null; headcount: number | null; centros: number; trabajadores: number;
   evaluaciones: number; openEvals: number; respuestas: number; avance: number | null;
   latest: { name: string; date: string } | null; worstLevel: string | null; hiPct: number | null; meanFinal: number | null;
   atsPend: number; alertsCrit: number; alertsTotal: number;
@@ -95,7 +95,7 @@ export default function Portfolio({ rows, canEdit = false, canDelete = false }: 
                     <span className="text-gray-700">{r.alertsTotal}</span></Link> : <span className="text-gray-400">—</span>}
                 </td>
                 {canEdit && <td className="td whitespace-nowrap text-right">
-                  <CompanyActions compact canDelete={canDelete} c={{ id: r.id, name: r.name, rfc: r.rfc, contact: r.contact, sector: r.sector, centros: r.centros, evaluaciones: r.evaluaciones, respuestas: null }} />
+                  <CompanyActions compact canDelete={canDelete} c={{ id: r.id, name: r.name, rfc: r.rfc, contact: r.contact, sector: r.sector, headcount: r.headcount, centros: r.centros, evaluaciones: r.evaluaciones, respuestas: null }} />
                 </td>}
               </tr>
             ))}

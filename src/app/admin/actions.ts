@@ -23,9 +23,9 @@ export async function createCompany(form: FormData) {
 export async function updateCompany(form: FormData) {
   const s = await requireUser(["SUPERADMIN", "CONSULTOR"]);
   const id = String(form.get("id"));
-  const d = z.object({ name: z.string().min(2), rfc: z.string().optional(), contact: z.string().optional(), sector: z.string().optional() })
-    .parse({ name: form.get("name"), rfc: form.get("rfc") || undefined, contact: form.get("contact") || undefined, sector: form.get("sector") || undefined });
-  await db.update(schema.companies).set({ name: d.name, rfc: d.rfc ?? null, contact: d.contact ?? null, sector: d.sector ?? null }).where(eq(schema.companies.id, id));
+  const d = z.object({ name: z.string().min(2), rfc: z.string().optional(), contact: z.string().optional(), sector: z.string().optional(), headcount: z.coerce.number().int().min(0).optional() })
+    .parse({ name: form.get("name"), rfc: form.get("rfc") || undefined, contact: form.get("contact") || undefined, sector: form.get("sector") || undefined, headcount: form.get("headcount") || undefined });
+  await db.update(schema.companies).set({ name: d.name, rfc: d.rfc ?? null, contact: d.contact ?? null, sector: d.sector ?? null, headcount: d.headcount ?? null }).where(eq(schema.companies.id, id));
   await audit(s, "update", "company", id);
   revalidatePath(`/admin/empresas/${id}`);
   revalidatePath("/admin");

@@ -86,18 +86,19 @@ export async function importStructure(form: FormData) {
 
 /* ---------- Asistente "Nuevo cliente" ---------- */
 const Wizard = z.object({
-  company: z.object({ name: z.string().trim().min(2).max(200), rfc: z.string().trim().max(20).optional(), contact: z.string().trim().max(200).optional(), sector: z.string().trim().max(120).optional() }),
-  centros: z.array(Centro.extend({ evaluate: z.boolean(), guide: z.enum(["GUIA_II", "GUIA_III"]).optional() })).min(1).max(100),
+  company: z.object({ name: z.string().trim().min(2).max(200), rfc: z.string().trim().max(20).optional(), contact: z.string().trim().max(200).optional(), sector: z.string().trim().max(120).optional(), headcount: z.number().int().min(0).optional() }),
+  // Sin centros: se guarda solo la empresa y la estructura se captura después
+  centros: z.array(Centro.extend({ evaluate: z.boolean(), guide: z.enum(["GUIA_II", "GUIA_III"]).optional() })).max(100),
   evaluation: z.object({ name: z.string().trim().min(2).max(160), includeGuideI: z.boolean(), positions: z.array(z.string().trim().min(1)).max(50), open: z.boolean() }),
 });
-export type WizardResult = { companyId: string; evaluations: { id: string; name: string; centro: string; token: string; guide: string }[] };
+export type WizardResult = { companyId: string; centros: number; evaluations: { id: string; name: string; centro: string; token: string; guide: string }[] };
 
-/** Crea en una sola operación la empresa, sus centros con áreas y la primera evaluación de los centros elegidos. */
+/** Crea en una sola operación la empresa, sus centros con áreas y la primera evaluación de los centros elegidos (o solo la empresa). */
 export async function createClient(input: z.input<typeof Wizard>): Promise<WizardResult> {
   const s = await requireUser(["SUPERADMIN", "CONSULTOR"]);
   const d = Wizard.parse(input);
   return db.transaction(async (tx) => {
-    const [c] = await tx.insert(schema.companies).values({ name: d.company.name, rfc: d.company.rfc || null, contact: d.company.contact || null, sector: d.company.sector || null }).returning();
+    const [c] = await tx.insert(schema.companies).values({ name: d.company.name, rfc: d.company.rfc || null, contact: d.company.contact || null, sector: d.company.sector || null, headcount: d.company.headcount ?? null }).returning();
     const out: WizardResult["evaluations"] = [];
     for (const ce of d.centros) {
       const [w] = await tx.insert(schema.workplaces).values({ companyId: c.id, name: ce.name, address: ce.address || null, headcount: ce.headcount }).returning();
@@ -115,6 +116,6 @@ export async function createClient(input: z.input<typeof Wizard>): Promise<Wizar
       }
     }
     await tx.insert(schema.auditLogs).values({ userId: s.uid, action: "create-wizard", entity: "company", entityId: c.id });
-    return { companyId: c.id, evaluations: out };
+    return { companyId: c.id, centros: d.centros.length, evaluations: out };
   }).finally(() => revalidatePath("/admin"));
 }
