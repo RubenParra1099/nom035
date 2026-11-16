@@ -3,18 +3,10 @@ import { useMemo, useState } from "react";
 import { ANSWERS } from "@/lib/nom035/guides";
 import { G1_SECTIONS } from "@/lib/nom035/guia1";
 import { DEMO_QUESTIONS, PHYSICAL_ITEMS, PHYSICAL_OPTIONS } from "@/lib/nom035/demographics";
-import { CATALOGO, TIPOS_PLAZA } from "@/lib/nom035/catalogo";
+import { CATALOGO, IDENT_FIELDS, TIPOS_PLAZA, type IdentKey } from "@/lib/nom035/catalogo";
 import { submitSurvey } from "./actions";
 
 const OTRO = "__otro__";
-const IDENT_FIELDS = [
-  { key: "workCenter", label: "Centro de trabajo" },
-  { key: "positionType", label: "Tipo de plaza" },
-  { key: "fullName", label: "Nombre completo" },
-  { key: "position", label: "Puesto" },
-  { key: "area", label: "Área de adscripción" },
-] as const;
-type IdentKey = (typeof IDENT_FIELDS)[number]["key"];
 /** Valor elegido de la lista, o OTRO + texto libre. */
 type Pick = { choice: string; other: string };
 const emptyPick: Pick = { choice: "", other: "" };

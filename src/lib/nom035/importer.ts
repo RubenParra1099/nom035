@@ -1,6 +1,7 @@
 import { G3_TO_G2, GuideId } from "./guides";
 import { answerIndex } from "./score";
 import { parseYesNo } from "./guia1";
+import { IDENT_FIELDS } from "./catalogo";
 
 export interface NormalizedResponse {
   submittedAt: Date | null;
@@ -12,7 +13,7 @@ export interface NormalizedResponse {
   g1: (boolean | null)[];
   contactName: string | null;
   comment: string | null;
-  /** Solo captura en línea: centro de trabajo, tipo de plaza, nombre, puesto y área de adscripción. */
+  /** Centro de trabajo, tipo de plaza, nombre, puesto y área de adscripción (en línea, o en papel vía plantilla). */
   identity?: RespondentIdentity | null;
 }
 
@@ -93,7 +94,9 @@ export function normalizeSheet(rows: unknown[][]) {
   const header = rows[0].map((h) => String(h ?? "").trim());
   const { guide, itemCols, numbering } = detectGuide(header);
   const find = (re: RegExp) => header.findIndex((h) => re.test(h));
-  const demoCols = DEMOGRAPHIC_FIELDS.map((f) => ({ ...f, col: header.findIndex((h) => f.match.test(h) && !/\[/.test(h)) }));
+  const identCols = IDENT_FIELDS.map((f) => ({ key: f.key, col: header.findIndex((h) => f.match.test(h)) }));
+  // "Área de adscripción" es dato de identificación, no el departamento de los datos generales
+  const demoCols = DEMOGRAPHIC_FIELDS.map((f) => ({ ...f, col: header.findIndex((h) => f.match.test(h) && !/\[/.test(h) && !/adscrip/i.test(h)) }));
   const eduCols = EDUCATION_LEVELS.map((lvl) => ({ lvl, col: header.findIndex((h) => h.includes(`Nivel de Estudios [${lvl}]`)) }));
   const eduSingle = header.findIndex((h) => /^nivel de estudios$/i.test(h));
   const physCols = PHYSICAL_FIELDS.map((p) => ({ p, col: header.findIndex((h) => /factores f[ií]sicos/i.test(h) && h.includes(p)) }));
@@ -119,6 +122,7 @@ export function normalizeSheet(rows: unknown[][]) {
     }
     if (!estudios && eduSingle >= 0) estudios = cell(eduSingle);
     const contact = cell(contactCol);
+    const ident = Object.fromEntries(identCols.map(({ key, col }) => [key, cell(col) ?? ""])) as unknown as RespondentIdentity;
     responses.push({
       submittedAt: parseDate(tsCol >= 0 ? r[tsCol] : null),
       demographics: {
@@ -132,6 +136,7 @@ export function normalizeSheet(rows: unknown[][]) {
       g1: g1Cols.map((c) => parseYesNo(cell(c))),
       contactName: contact && !/^(no|n\/a|-|ninguno|no deseo)$/i.test(contact) ? contact : null,
       comment: cell(commentCol),
+      identity: Object.values(ident).some(Boolean) ? ident : null,
     });
   }
   return { guide, numbering, responses, columnsFound: Object.keys(itemCols).length };

@@ -7,6 +7,7 @@ import { ANSWERS, G2_TO_G3, GUIDES, itemsOfDomain, type GuideId } from "@/lib/no
 import { G1_SECTIONS } from "@/lib/nom035/guia1";
 import { DEMO_QUESTIONS, PHYSICAL_ITEMS, PHYSICAL_OPTIONS } from "@/lib/nom035/demographics";
 import { buildTemplate } from "@/lib/nom035/template";
+import { CATALOGO, TIPOS_PLAZA } from "@/lib/nom035/catalogo";
 
 type Tab = "I" | "II" | "III";
 type Mode = "trabajador" | "especialista" | "impresion";
@@ -36,6 +37,7 @@ export default function GuideCatalog() {
   const [tab, setTab] = useState<Tab>("III");
   const [mode, setMode] = useState<Mode>("trabajador");
   const [q, setQ] = useState("");
+  const [withIdent, setWithIdent] = useState(true);
   const [withDemo, setWithDemo] = useState(true);
   const [withG1, setWithG1] = useState(true);
 
@@ -128,6 +130,7 @@ export default function GuideCatalog() {
         {mode !== "impresion" && <input className="input ml-auto max-w-xs" placeholder="Buscar texto o número…" value={q} onChange={(e) => setQ(e.target.value)} />}
         {mode === "impresion" && (
           <div className="ml-auto flex flex-wrap items-center gap-4 text-sm">
+            <label className="inline-flex items-center gap-1.5"><input type="checkbox" checked={withIdent} onChange={(e) => setWithIdent(e.target.checked)} />Datos de identificación</label>
             {gid && <label className="inline-flex items-center gap-1.5"><input type="checkbox" checked={withDemo} onChange={(e) => setWithDemo(e.target.checked)} />Datos generales</label>}
             {gid && <label className="inline-flex items-center gap-1.5"><input type="checkbox" checked={withG1} onChange={(e) => setWithG1(e.target.checked)} />Incluir Guía I</label>}
             <button className="btn-primary" onClick={() => window.print()}>Imprimir / PDF</button>
@@ -137,7 +140,7 @@ export default function GuideCatalog() {
 
       {mode === "trabajador" && (tab === "I" ? <G1Worker match={match} /> : <WorkerView gid={gid!} match={match} />)}
       {mode === "especialista" && (tab === "I" ? <G1Specialist match={match} /> : <SpecialistView gid={gid!} map={map} match={match} />)}
-      {mode === "impresion" && <PrintView tab={tab} gid={gid} withDemo={withDemo} withG1={withG1} />}
+      {mode === "impresion" && <PrintView tab={tab} gid={gid} withIdent={withIdent} withDemo={withDemo} withG1={withG1} />}
     </div>
   );
 }
@@ -291,7 +294,7 @@ function G1Specialist({ match }: { match: (t: string, n?: number) => boolean }) 
 
 /* ---------------- Formato impreso ---------------- */
 const box = <span className="inline-block h-3.5 w-3.5 rounded-sm border border-gray-500 align-middle" />;
-function PrintView({ tab, gid, withDemo, withG1 }: { tab: Tab; gid: GuideId | null; withDemo: boolean; withG1: boolean }) {
+function PrintView({ tab, gid, withIdent, withDemo, withG1 }: { tab: Tab; gid: GuideId | null; withIdent: boolean; withDemo: boolean; withG1: boolean }) {
   const g = gid ? GUIDES[gid] : null;
   return (
     <div className="report-paper mx-auto max-w-[8.5in] rounded-xl border border-line bg-white p-8 text-[12px] text-gray-900 shadow-sm print:max-w-none print:rounded-none print:border-0 print:p-0 print:shadow-none">
@@ -306,12 +309,36 @@ function PrintView({ tab, gid, withDemo, withG1 }: { tab: Tab; gid: GuideId | nu
         <div className="text-right text-[11px] text-gray-500">Folio: ________</div>
       </div>
       <div className="mt-3 grid grid-cols-3 gap-x-6 gap-y-2 text-[11px]">
-        <div>Empresa: ______________________</div><div>Centro de trabajo: _______________</div><div>Fecha: ____ / ____ / ______</div>
+        <div className="col-span-2">Empresa: ________________________________________</div><div>Fecha: ____ / ____ / ______</div>
       </div>
       <div className="mt-3 rounded border border-gray-300 p-2 text-[11px] leading-snug">
-        <b>Instrucciones.</b> Sus respuestas son confidenciales y anónimas; no escriba su nombre. No hay respuestas correctas o incorrectas.
+        <b>Instrucciones.</b> Sus respuestas son confidenciales{withIdent
+          ? "; sus datos de identificación solo los consulta el personal responsable de la evaluación y no aparecen en los resultados."
+          : " y anónimas; no escriba su nombre."} No hay respuestas correctas o incorrectas.
         {tab === "I" ? " Marque Sí o No en cada pregunta." : " Marque con una X una sola opción por pregunta, según lo que ocurre en su trabajo."}
       </div>
+
+      {withIdent && (
+        <div className="mt-4 break-inside-avoid">
+          <h3 className="mb-1 text-[12px] font-semibold uppercase tracking-wide">Datos de identificación</h3>
+          <div className="text-[11px]">
+            <b>Centro de trabajo:</b>
+            <div className="mt-0.5 grid grid-cols-2 gap-x-6 gap-y-0.5">
+              {CATALOGO.map((c) => <span key={c.centro}>{box} {c.centro}</span>)}
+              <span>{box} Otro: ______________________________</span>
+            </div>
+          </div>
+          <div className="mt-1.5 text-[11px]"><b>Tipo de plaza:</b>{" "}
+            {TIPOS_PLAZA.map((o) => <span key={o} className="mr-3 whitespace-nowrap">{box} {o}</span>)}
+            <span className="whitespace-nowrap">{box} Otro: __________________</span>
+          </div>
+          <div className="mt-1 space-y-2 text-[11px]">
+            {["Nombre completo", "Puesto", "Área de adscripción"].map((l) => (
+              <div key={l} className="flex items-end gap-2"><b className="whitespace-nowrap">{l}:</b><span className="h-4 flex-1 border-b border-gray-500" /></div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {gid && withDemo && (
         <div className="mt-4 break-inside-avoid">

@@ -1,6 +1,7 @@
 import { ANSWERS, GUIDES, type GuideId } from "./guides";
 import { G1_SECTIONS } from "./guia1";
 import { DEMO_QUESTIONS, PHYSICAL_ITEMS, PHYSICAL_OPTIONS } from "./demographics";
+import { CATALOGO, IDENT_FIELDS, TIPOS_PLAZA } from "./catalogo";
 
 const PHYS_LABEL: Record<string, string> = {
   Temperatura: "Temperatura en mi lugar de trabajo", Humedad: "Humedad en mi lugar de trabajo",
@@ -22,6 +23,18 @@ export function buildTemplate(guide: GuideId, opts: { departments: string[]; pos
   const g = GUIDES[guide];
   const header: string[] = ["Marca temporal"];
   const allowed: [string, string][] = [["Marca temporal", "Fecha de captura (opcional), p. ej. 15/11/2026"]];
+
+  const identAllowed: Record<string, string> = {
+    workCenter: [...CATALOGO.map((c) => c.centro), "u otro (texto libre)"].join(" | "),
+    positionType: [...TIPOS_PLAZA, "u otro (texto libre)"].join(" | "),
+    fullName: "Texto libre",
+    position: "Puesto del catálogo de su centro de trabajo o texto libre",
+    area: "Área del catálogo de su centro de trabajo o texto libre",
+  };
+  for (const f of IDENT_FIELDS) {
+    header.push(f.header);
+    allowed.push([f.header, identAllowed[f.key]]);
+  }
 
   for (const q of DEMO_QUESTIONS) {
     const h = DEMO_HEADER[q.key];

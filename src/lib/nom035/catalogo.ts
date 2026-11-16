@@ -7,6 +7,16 @@ export type CentroTrabajo = { centro: string; areas: string[]; puestos: string[]
 
 export const TIPOS_PLAZA = ["CONFIANZA", "SINDICALIZADO", "HONORARIOS"];
 
+/** Datos de identificación: etiqueta en cuestionario, formato impreso y encabezado de la plantilla de Excel. */
+export const IDENT_FIELDS = [
+  { key: "workCenter", label: "Centro de trabajo", header: "Centro de Trabajo", match: /^centro de trabajo$/i },
+  { key: "positionType", label: "Tipo de plaza", header: "Tipo de Plaza", match: /^tipo de plaza$/i },
+  { key: "fullName", label: "Nombre completo", header: "Nombre Completo", match: /^nombre completo$/i },
+  { key: "position", label: "Puesto", header: "Puesto", match: /^puesto$/i },
+  { key: "area", label: "Área de adscripción", header: "Área de Adscripción", match: /^[áa]rea de adscripci[óo]n$/i },
+] as const;
+export type IdentKey = (typeof IDENT_FIELDS)[number]["key"];
+
 export const CATALOGO: CentroTrabajo[] = [
   {
     centro: "SECRETARÍA DEL AYUNTAMIENTO",
