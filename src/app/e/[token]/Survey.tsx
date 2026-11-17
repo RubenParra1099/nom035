@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ANSWERS } from "@/lib/nom035/guides";
 import { G1_SECTIONS } from "@/lib/nom035/guia1";
 import { DEMO_QUESTIONS, PHYSICAL_ITEMS, PHYSICAL_OPTIONS } from "@/lib/nom035/demographics";
@@ -23,6 +23,26 @@ type Step =
 
 const G1_OFFSET = [0, 6, 8, 15];
 
+/* ---------- Avance guardado en el teléfono (localStorage), nunca en el servidor ---------- */
+type Saved = {
+  v: 1; at: number; stepIdx: number; consent: boolean; ident: Record<IdentKey, Pick>;
+  demo: Record<string, string | null>; phys: Record<string, string | null>; g1: (boolean | null)[];
+  items: Record<number, number | null>; servesClients: boolean | null; isBoss: boolean | null; contactName: string; comment: string;
+};
+/** El avance caduca: en un teléfono compartido no debe quedar a la vista del siguiente trabajador. */
+const SAVED_TTL = 24 * 60 * 60 * 1000;
+const savedKey = (token: string) => `nom035:avance:${token}`;
+function readSaved(token: string): Saved | null {
+  try {
+    const raw = localStorage.getItem(savedKey(token));
+    if (!raw) return null;
+    const s = JSON.parse(raw) as Saved;
+    if (s.v !== 1 || Date.now() - s.at > SAVED_TTL || !(s.stepIdx > 0)) { localStorage.removeItem(savedKey(token)); return null; }
+    return s;
+  } catch { return null; }
+}
+function clearSaved(token: string) { try { localStorage.removeItem(savedKey(token)); } catch { /* sin almacenamiento */ } }
+
 export default function Survey(p: Props) {
   const [stepIdx, setStepIdx] = useState(0);
   const [consent, setConsent] = useState(false);
@@ -40,6 +60,24 @@ export default function Survey(p: Props) {
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [done, setDone] = useState(false);
+  // Avance pendiente de una visita anterior; mientras se decide si continuar, no se guarda nada encima
+  const [pending, setPending] = useState<Saved | null>(null);
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    const s = readSaved(p.token);
+    if (s) setPending(s); else setReady(true);
+  }, [p.token]);
+  useEffect(() => {
+    if (!ready || done || stepIdx === 0) return;
+    const s: Saved = { v: 1, at: Date.now(), stepIdx, consent, ident, demo, phys, g1, items, servesClients, isBoss, contactName, comment };
+    try { localStorage.setItem(savedKey(p.token), JSON.stringify(s)); } catch { /* sin almacenamiento: se contesta igual, sin guardar avance */ }
+  }, [ready, done, p.token, stepIdx, consent, ident, demo, phys, g1, items, servesClients, isBoss, contactName, comment]);
+  function resume(s: Saved) {
+    setConsent(s.consent); setIdent(s.ident); setDemo(s.demo); setPhys(s.phys); setG1(s.g1); setItems(s.items);
+    setServesClients(s.servesClients); setIsBoss(s.isBoss); setContactName(s.contactName); setComment(s.comment);
+    setStepIdx(s.stepIdx); setPending(null); setReady(true);
+  }
+  function restart() { clearSaved(p.token); setPending(null); setReady(true); }
 
   const g1Event = g1.slice(0, 6).some((x) => x === true);
   const steps: Step[] = useMemo(() => {
@@ -116,7 +154,7 @@ export default function Survey(p: Props) {
     });
     setSending(false);
     if ("error" in res && res.error) setError(res.error);
-    else setDone(true);
+    else { clearSaved(p.token); setDone(true); }
   }
 
   if (done) {
@@ -126,6 +164,28 @@ export default function Survey(p: Props) {
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-green-100 text-2xl text-green-700">✓</div>
           <h2 className="text-xl font-semibold">¡Gracias por su participación!</h2>
           <p className="mt-2 text-gray-600">Sus respuestas se registraron de forma confidencial. Ya puede cerrar esta ventana.</p>
+        </div>
+      </Shell>
+    );
+  }
+
+  if (pending) {
+    const pct = Math.min(99, Math.round((pending.stepIdx / (steps.length - 1)) * 100));
+    const when = new Date(pending.at).toLocaleString("es-MX", { weekday: "long", hour: "2-digit", minute: "2-digit" });
+    return (
+      <Shell {...p} progress={pct}>
+        <div className="space-y-5 py-4 text-center">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-brand-50 text-2xl text-brand-700" aria-hidden>↻</div>
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">Tiene un cuestionario sin terminar</h2>
+            <p className="mt-1 text-sm text-gray-500">Guardado en este teléfono el {when} · lleva {pct}% del cuestionario</p>
+          </div>
+          <p className="text-[15px] text-gray-700">¿Desea continuar donde se quedó?</p>
+          <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
+            <button className="btn-primary" onClick={() => resume(pending)}>Continuar donde me quedé</button>
+            <button className="btn-secondary" onClick={restart}>Empezar de nuevo</button>
+          </div>
+          <p className="text-xs text-gray-500">Si este teléfono lo usa otra persona, elija “Empezar de nuevo”: se borran las respuestas guardadas.</p>
         </div>
       </Shell>
     );
@@ -144,6 +204,7 @@ export default function Survey(p: Props) {
             <li>Sus respuestas son <b>confidenciales</b> y los resultados se presentan de forma agrupada.</li>
             <li>Se le pedirán sus datos de identificación; solo el personal responsable de la evaluación podrá verlos.</li>
             <li>Toma aproximadamente {p.guide === "GUIA_III" ? "20" : "12"} minutos.</li>
+            <li>Su avance se guarda en este teléfono: si se cierra la página, al volver a abrir el enlace puede continuar donde se quedó.</li>
           </ul>
           <label className="flex items-start gap-3 rounded-lg bg-brand-50 p-3">
             <input type="checkbox" className="mt-1 h-5 w-5" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
