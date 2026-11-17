@@ -375,12 +375,12 @@ function Resumen({ ev, g, agg, n, prev, fRecs, fScores, maxDomain, itemMap, setT
         </Panel>
         <Panel title="Hallazgos principales" subtitle="Generados a partir de los datos filtrados">
           <ul className="space-y-2 text-sm text-gray-700">{insights.map((t, i) => <li key={i} className="flex gap-2"><span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-brand-600" />{t}</li>)}</ul>
-          <button className="mt-3 text-sm font-medium text-brand-700 hover:underline" onClick={() => setTab("plan")}>Ver plan de acción →</button>
+          <button className="no-print mt-3 text-sm font-medium text-brand-700 hover:underline" onClick={() => setTab("plan")}>Ver plan de acción →</button>
         </Panel>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Panel title="Categorías" subtitle="Barra: calificación promedio · fondo: rangos de la norma" right={<button className="text-xs text-brand-700 hover:underline" onClick={() => setTab("dominios")}>Detalle →</button>}>
+        <Panel title="Categorías" subtitle="Barra: calificación promedio · fondo: rangos de la norma" right={<button className="no-print text-xs text-brand-700 hover:underline" onClick={() => setTab("dominios")}>Detalle →</button>}>
           <div className="space-y-3">
             {agg.categories.map((c) => (
               <div key={c.name}>
@@ -409,7 +409,7 @@ function Resumen({ ev, g, agg, n, prev, fRecs, fScores, maxDomain, itemMap, setT
 
       <Panel title="Reactivos con mayor riesgo" subtitle="Ordenados por puntos promedio · barra: respuestas según su riesgo" right={<RiskLegend />}>
         <ItemRows rows={items} onOpen={onOpen} />
-        <button className="mt-3 text-sm font-medium text-brand-700 hover:underline" onClick={() => setTab("reactivos")}>Ver los {g.items} reactivos →</button>
+        <button className="no-print mt-3 text-sm font-medium text-brand-700 hover:underline" onClick={() => setTab("reactivos")}>Ver los {g.items} reactivos →</button>
       </Panel>
     </div>
   );

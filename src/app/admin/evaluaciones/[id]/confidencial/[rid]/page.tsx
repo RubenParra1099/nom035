@@ -100,7 +100,7 @@ export default async function WorkerSheet({ params }: { params: Promise<{ id: st
         <section className="card p-5 print:p-3">
           {ident && (<>
             <h2 className="mb-3 text-base font-semibold text-gray-900 print:mb-1 print:text-[12px]">Identificación</h2>
-            <dl className="mb-4 grid grid-cols-[minmax(0,11rem)_1fr] gap-x-3 gap-y-1.5 text-sm print:grid-cols-[minmax(0,8rem)_1fr] print:gap-y-0 print:text-[10px] print:mb-2">
+            <dl className="mb-4 grid grid-cols-[minmax(0,11rem)_1fr] gap-x-3 gap-y-1.5 text-sm print:grid-cols-[minmax(0,10.5rem)_1fr] print:gap-y-0 print:text-[10px] print:mb-2">
               <dt className="text-gray-500">Nombre completo</dt><dd className="text-gray-900">{ident.fullName}</dd>
               <dt className="text-gray-500">Centro de trabajo</dt><dd className="text-gray-900">{ident.workCenter}</dd>
               <dt className="text-gray-500">Área de adscripción</dt><dd className="text-gray-900">{ident.area}</dd>
@@ -108,7 +108,7 @@ export default async function WorkerSheet({ params }: { params: Promise<{ id: st
               <dt className="text-gray-500">Tipo de plaza</dt><dd className="text-gray-900">{ident.positionType}</dd>
             </dl></>)}
           <h2 className="mb-3 flex items-center gap-2 text-base font-semibold text-gray-900 print:mb-1 print:text-[12px]">Datos generales<Help id="fi.datos" /></h2>
-          <dl className="grid grid-cols-[minmax(0,11rem)_1fr] gap-x-3 gap-y-1.5 text-sm print:grid-cols-[minmax(0,8rem)_1fr] print:gap-y-0 print:text-[10px]">
+          <dl className="grid grid-cols-[minmax(0,11rem)_1fr] gap-x-3 gap-y-1.5 text-sm print:grid-cols-[minmax(0,10.5rem)_1fr] print:gap-y-0 print:text-[10px]">
             {DEMO_QUESTIONS.map((q) => <Fragment key={q.key}><dt className="text-gray-500">{q.label.replace(/ \(.*\)$/, "")}</dt><dd className="text-gray-900">{r.demographics[q.key] || "—"}</dd></Fragment>)}
             <dt className="text-gray-500">Atiende clientes o usuarios</dt><dd>{r.servesClients === null ? "—" : r.servesClients ? "Sí" : "No"}</dd>
             <dt className="text-gray-500">Es jefe de otros trabajadores</dt><dd>{r.isBoss === null ? "—" : r.isBoss ? "Sí" : "No"}</dd>

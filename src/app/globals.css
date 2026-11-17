@@ -148,6 +148,30 @@ body { font-feature-settings: "cv11", "ss01"; }
   .no-print, aside, header, nav { display: none !important; }
   main { padding: 0 !important; max-width: none !important; }
   .card { box-shadow: none; break-inside: avoid; }
+  /* Tarjetas con tablas o con otras tarjetas dentro pueden seguir en la página siguiente: si no, saltan completas y dejan hojas casi vacías */
+  .card:has(table), .card:has(.card) { break-inside: auto; }
+  tr, li, svg, figure, article { break-inside: avoid; }
+  h1, h2, h3 { break-after: avoid; }
+
+  /* Pantallas de la app: más densas en papel (todo usa rem). Los documentos .report-paper ya están diseñados a tamaño carta. */
+  html:not(:has(.report-paper)) { font-size: 12.5px; }
+  .td { padding-top: .2rem; padding-bottom: .2rem; }
+  .th { padding-top: .3rem; padding-bottom: .3rem; }
+
+  /* La hoja carta es más angosta que los cortes md/lg/xl: en papel se usa el acomodo de escritorio (en orden, el corte mayor gana) */
+  .md\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .md\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .md\:grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .md\:grid-cols-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .md\:col-span-2 { grid-column: span 2 / span 2; }
+  .lg\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .lg\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .lg\:grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .lg\:col-span-2 { grid-column: span 2 / span 2; }
+  .xl\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .xl\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .xl\:grid-cols-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .xl\:grid-cols-6 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
   details { display: block; }
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
