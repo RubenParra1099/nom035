@@ -22,11 +22,13 @@ function Step({ n, t, d, h }: { n: number; t: string; d?: string; h?: HelpId }) 
 }
 
 /** Nueva evaluación: la plantilla (total y áreas) viene de la Estructura de la empresa; aquí solo se confirma. */
-export default function NewEvalForm({ action, workplaceId, back, estructura, defaultName, headcount, areas, fallbackAreas, positions, positionSuggestions, source }: {
+export default function NewEvalForm({ action, workplaceId, back, estructura, defaultName, headcount, areas, fallbackAreas, positions, positionSuggestions, source, general = false }: {
   action: (f: FormData) => Promise<void>;
   workplaceId: string; back: string; estructura: string; defaultName: string; headcount: number;
   areas: { name: string; headcount: number }[]; fallbackAreas: string[];
   positions: string[]; positionSuggestions: string[]; source: string | null;
+  /** Evaluación de toda la empresa: la plantilla es la suma de los centros y el trabajador elige su centro. */
+  general?: boolean;
 }) {
   const [picked, setPicked] = useState<string | null>(null);
   const N = headcount;
@@ -52,7 +54,7 @@ export default function NewEvalForm({ action, workplaceId, back, estructura, def
         </div>
 
         <div className="space-y-3">
-          <Step n={2} h="ne.plantilla" t="Plantilla del centro" d="Se toma de la Estructura de la empresa y queda guardada con esta evaluación." />
+          <Step n={2} h="ne.plantilla" t={general ? "Plantilla de la empresa (todos los centros)" : "Plantilla del centro"} d={general ? "Suma de los centros de la Estructura. Cada trabajador elegirá su centro de trabajo en el cuestionario." : "Se toma de la Estructura de la empresa y queda guardada con esta evaluación."} />
           <div className="space-y-3 pl-9">
             <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl bg-surface-2 px-4 py-3">
               <div><div className="text-xs text-gray-500">Trabajadores</div><div className="text-xl font-semibold tabular-nums text-ink">{N}</div></div>
@@ -72,7 +74,7 @@ export default function NewEvalForm({ action, workplaceId, back, estructura, def
               </div>
             ) : (
               <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-950/30">
-                Este centro no tiene áreas en la Estructura.{fallbackAreas.length ? ` Se usarán las de la evaluación anterior (${fallbackAreas.join(", ")}), sin número de trabajadores.` : " El cuestionario no pedirá área."} Para medir participación por área, <Link href={estructura} className="font-semibold underline">captúrelas en la Estructura</Link>.
+                {general ? "Los centros no tienen áreas en la Estructura." : "Este centro no tiene áreas en la Estructura."}{fallbackAreas.length ? ` Se usarán las de la evaluación anterior (${fallbackAreas.join(", ")}), sin número de trabajadores.` : " El cuestionario no pedirá área."} Para medir participación por área, <Link href={estructura} className="font-semibold underline">captúrelas en la Estructura</Link>.
               </p>
             )}
             {areas.length > 0 && !ok && <p className="text-xs text-amber-700">⚠ {sum < N ? `Faltan ${N - sum} trabajadores por asignar a un área.` : `Las áreas suman ${sum - N} más que el total.`} Puede crear la evaluación así o corregirlo en la Estructura.</p>}
@@ -80,7 +82,7 @@ export default function NewEvalForm({ action, workplaceId, back, estructura, def
         </div>
 
         <div className="space-y-3">
-          <Step n={3} h="ne.cuestionario" t="Cuestionario" d="Se sugiere según el total de trabajadores del centro" />
+          <Step n={3} h="ne.cuestionario" t="Cuestionario" d={`Se sugiere según el total de trabajadores ${general ? "de la empresa" : "del centro"}`} />
           <div className="grid gap-3 pl-9 md:grid-cols-2">
             {GUIDES.map((g) => (
               <label key={g.id} className="relative flex cursor-pointer gap-3 rounded-xl border border-line p-4 transition has-[:checked]:border-brand-600 has-[:checked]:bg-brand-50">

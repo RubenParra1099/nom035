@@ -7,6 +7,7 @@ import { z } from "zod";
 import { db, schema } from "@/db";
 import { createToken } from "@/db/id";
 import { audit, requireUser } from "@/lib/auth";
+import { generalTemplate, generalWorkplace } from "@/lib/generalEvaluation";
 
 const lines = (v: FormDataEntryValue | null) =>
   String(v ?? "").split(/\n|,/).map((s) => s.trim()).filter(Boolean);
@@ -104,6 +105,27 @@ export async function createEvaluation(form: FormData) {
     headcount, areaHeadcount: Object.keys(areaHeadcount).length ? areaHeadcount : null,
   }).returning();
   await audit(s, "create", "evaluation", e.id);
+  redirect(`/admin/evaluaciones/${e.id}`);
+}
+
+/** Evaluación de toda la empresa sin elegir centro: cada trabajador indica su centro de trabajo en el cuestionario. */
+export async function createGeneralEvaluation(companyId: string, form: FormData) {
+  const s = await requireUser(["SUPERADMIN", "CONSULTOR"]);
+  const d = z.object({
+    name: z.string().min(2),
+    guide: z.enum(["GUIA_II", "GUIA_III"]),
+    includeGuideI: z.boolean(),
+  }).parse({ name: form.get("name"), guide: form.get("guide"), includeGuideI: form.get("includeGuideI") === "on" });
+  const t = await generalTemplate(companyId);
+  if (!t) throw new Error("Empresa no encontrada");
+  const wp = await generalWorkplace(companyId);
+  const departments = t.areas.length ? t.areas.map((a) => a.name) : [...new Map(lines(form.get("departments")).map((x) => [x.toLowerCase(), x])).values()];
+  const areaHeadcount = Object.fromEntries(t.areas.map((a) => [a.name, a.headcount]));
+  const [e] = await db.insert(schema.evaluations).values({
+    ...d, workplaceId: wp.id, token: createToken(), departments, positions: lines(form.get("positions")),
+    headcount: t.headcount, areaHeadcount: Object.keys(areaHeadcount).length ? areaHeadcount : null,
+  }).returning();
+  await audit(s, "create-general", "evaluation", e.id);
   redirect(`/admin/evaluaciones/${e.id}`);
 }
 

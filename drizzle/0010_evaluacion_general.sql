@@ -1,0 +1,1 @@
+ALTER TABLE "workplaces" ADD COLUMN "general" boolean DEFAULT false NOT NULL;

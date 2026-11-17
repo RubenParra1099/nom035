@@ -40,7 +40,8 @@ export default async function CompaniesPage() {
       if (!last) continue;
       const x = st(last.id);
       n += x?.n ?? 0;
-      target += w.headcount > 50 ? sampleSize(w.headcount) : w.headcount;
+      const N = last.headcount ?? w.headcount;
+      target += N > 50 ? sampleSize(N) : N;
       if (+last.createdAt > latestDate) { latestDate = +last.createdAt; latestName = last.name; }
       if (x && x.n >= 5) {
         hiN += x.hi; wsum += x.mean * x.n; wN += x.n;
@@ -51,7 +52,7 @@ export default async function CompaniesPage() {
     }
     const al = alerts.filter((a) => a.company === c.name);
     return {
-      id: c.id, name: c.name, sector: c.sector, rfc: c.rfc, contact: c.contact, headcount: c.headcount, centros: c.workplaces.length,
+      id: c.id, name: c.name, sector: c.sector, rfc: c.rfc, contact: c.contact, headcount: c.headcount, centros: c.workplaces.filter((w) => !w.general).length,
       // Sin centros capturados se muestra el total que declaró el cliente
       trabajadores: c.workplaces.length ? c.workplaces.reduce((t, w) => t + w.headcount, 0) : c.headcount ?? 0,
       evaluaciones: c.workplaces.reduce((t, w) => t + w.evaluations.length, 0), openEvals,

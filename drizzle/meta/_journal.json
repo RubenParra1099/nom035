@@ -71,6 +71,13 @@
       "when": 1794858749385,
       "tag": "0009_total_trabajadores_empresa",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1794922451685,
+      "tag": "0010_evaluacion_general",
+      "breakpoints": true
     }
   ]
 }

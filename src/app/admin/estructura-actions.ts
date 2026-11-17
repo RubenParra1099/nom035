@@ -70,7 +70,7 @@ export async function importStructure(form: FormData) {
     if (!byCentro.has(k)) byCentro.set(k, { name: r.centro, areas: [] });
     byCentro.get(k)!.areas.push({ name: r.area, headcount: r.n });
   }
-  const existing = await db.query.workplaces.findMany({ where: eq(schema.workplaces.companyId, companyId) });
+  const existing = await db.query.workplaces.findMany({ where: and(eq(schema.workplaces.companyId, companyId), eq(schema.workplaces.general, false)) });
   for (const c of byCentro.values()) {
     const total = c.areas.reduce((t, a) => t + (a.headcount ?? 0), 0);
     const found = existing.find((w) => w.name.toLowerCase() === c.name.toLowerCase());

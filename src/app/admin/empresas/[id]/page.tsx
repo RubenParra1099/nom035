@@ -37,14 +37,17 @@ export default async function CompanyPage({ params, searchParams }: {
   });
   if (!company) notFound();
   const edit = canEdit(s);
-  const wps = company.workplaces;
+  // El contenedor de evaluaciones generales no es un centro de la estructura
+  const all = company.workplaces;
+  const wps = all.filter((w) => !w.general);
+  const general = all.find((w) => w.general);
   const base = `/admin/empresas/${company.id}`;
-  const hasEval = wps.some((w) => w.evaluations.length);
+  const hasEval = all.some((w) => w.evaluations.length);
   const requested = q.nuevo === "centro" ? "estructura" : q.centro && !q.tab ? "evaluaciones" : q.tab;
   const tab: Tab = TABS.some((t) => t.id === requested) && (requested !== "datos" || edit) ? (requested as Tab) : hasEval ? "resumen" : "estructura";
   const focus = wps.find((w) => w.id === q.centro);
 
-  const evalIds = wps.flatMap((x) => x.evaluations.map((e) => e.id));
+  const evalIds = all.flatMap((x) => x.evaluations.map((e) => e.id));
   const counts = evalIds.length
     ? await db.select({ id: schema.responses.evaluationId, n: sql<number>`count(*)::int`, mean: sql<number>`avg(${schema.responses.finalScore})::float`,
         ats: sql<number>`count(*) filter (where ${schema.responses.atsRequires})::int` }).from(schema.responses)
@@ -121,6 +124,13 @@ export default async function CompanyPage({ params, searchParams }: {
             ))}
           </div>
           <section className="space-y-3">
+            {general && latest(general) && (
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-baseline gap-2"><h3 className="text-base font-semibold text-ink">Evaluación general · todos los centros</h3>
+                  {general.evaluations.length > 1 && <Link href={`${base}?tab=evaluaciones`} className="ml-auto text-xs font-medium text-brand-700 hover:underline">Ver {general.evaluations.length} evaluaciones generales →</Link>}</div>
+                {card(general, latest(general)!)}
+              </div>
+            )}
             <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Evaluación más reciente de cada centro</h2>
             {wps.map((w) => {
               const e = latest(w);
@@ -220,6 +230,16 @@ export default async function CompanyPage({ params, searchParams }: {
       {/* ---------- Evaluaciones ---------- */}
       {tab === "evaluaciones" && (
         <div className="space-y-6">
+          {!focus && (general?.evaluations.length || (edit && wps.length > 0)) ? (
+            <section className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div><h2 className="text-base font-semibold text-ink">Evaluación general · todos los centros</h2><p className="text-xs text-gray-500">Un solo enlace para toda la empresa: cada trabajador elige su centro de trabajo y el tablero filtra por centro.{general ? ` · ${respOf(general)} respuestas` : ""}</p></div>
+                {edit && <Link href={`${base}/nueva-evaluacion`} className="btn-primary">+ Nueva evaluación general</Link>}
+              </div>
+              {general && [...general.evaluations].sort((a, b) => +b.createdAt - +a.createdAt).map((e) => card(general, e))}
+              {!general?.evaluations.length && <div className="rounded-xl border border-dashed border-gray-300 p-6 text-center text-sm text-gray-500">Aún no hay evaluaciones generales.</div>}
+            </section>
+          ) : null}
           {focus && <p className="text-sm text-gray-600">Mostrando <b>{focus.name}</b>. <Link href={`${base}?tab=evaluaciones`} className="font-medium text-brand-700 hover:underline">Ver todos los centros</Link></p>}
           {(focus ? [focus] : wps).map((w) => (
             <section key={w.id} className="space-y-3">
@@ -260,7 +280,7 @@ export default async function CompanyPage({ params, searchParams }: {
           {s.role === "SUPERADMIN" && (
             <section className="space-y-3 rounded-xl border border-red-200 p-5">
               <h2 className="text-sm font-semibold text-red-700">Zona de riesgo</h2>
-              {wps.map((w) => (
+              {all.map((w) => (
                 <form key={w.id} action={deleteWorkplace} className="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-3 text-sm last:border-0">
                   <input type="hidden" name="id" value={w.id} />
                   <span>{w.name} · {w.evaluations.length} evaluaciones · {respOf(w)} respuestas</span>

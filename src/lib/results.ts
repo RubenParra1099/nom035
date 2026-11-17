@@ -36,6 +36,8 @@ export const MIN_GROUP = 5;
 /* ---------------- Tablero interactivo ---------------- */
 
 export const DIMENSIONS: { key: string; label: string }[] = [
+  // Sale de la identificación del trabajador; solo aparece en el tablero cuando hay más de un centro (evaluación general)
+  { key: "centro", label: "Centro de trabajo" },
   { key: "departamento", label: "Área" },
   { key: "puesto", label: "Puesto" },
   { key: "sexo", label: "Sexo" },
@@ -70,11 +72,12 @@ export async function loadDashboard(evaluationId: string, opts: { folio?: boolea
   });
   if (!ev) return null;
   const g = GUIDES[ev.guide];
-  const rows = await db.query.responses.findMany({ where: eq(schema.responses.evaluationId, evaluationId) });
+  const withCentro = { identity: { columns: { workCenter: true } } } as const;
+  const rows = await db.query.responses.findMany({ where: eq(schema.responses.evaluationId, evaluationId), with: withCentro });
   const toRecord = (r: (typeof rows)[number]): DashRecord => ({
     // Folio anónimo y estable (derivado del id, no reversible); solo para administradores y consultores
     ...(opts.folio ? { f: folioOf(r.id) } : {}),
-    d: Object.fromEntries(DIMENSIONS.map(({ key }) => [key, r.demographics[key] || "Sin dato"])),
+    d: Object.fromEntries(DIMENSIONS.map(({ key }) => [key, (key === "centro" ? r.identity?.workCenter : r.demographics[key]) || "Sin dato"])),
     it: Array.from({ length: g.items }, (_, i) => {
       const v = (r.items as Record<string, number | null>)[i + 1];
       return v === undefined ? null : v;
@@ -93,7 +96,7 @@ export async function loadDashboard(evaluationId: string, opts: { folio?: boolea
   const previous = [];
   for (const pe of ev.workplace.evaluations) {
     if (pe.id === ev.id || pe.guide !== ev.guide || pe.createdAt >= ev.createdAt) continue;
-    const pr = await db.query.responses.findMany({ where: eq(schema.responses.evaluationId, pe.id) });
+    const pr = await db.query.responses.findMany({ where: eq(schema.responses.evaluationId, pe.id), with: withCentro });
     if (pr.length < MIN_GROUP) continue;
     previous.push({ id: pe.id, name: pe.name, createdAt: pe.createdAt.toISOString(), records: pr.map(toRecord) });
   }

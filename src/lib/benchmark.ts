@@ -44,11 +44,12 @@ export async function loadBenchmark(): Promise<BenchRow[]> {
       const a = aggregate(ev.guide, sc);
       const hiN = a.final.distribution.ALTO + a.final.distribution.MUY_ALTO;
       const maxCat = (c: string) => g.categories[c].reduce((t, d) => t + g.domains[d].length * 4, 0);
-      const kp = computeKpis({ guide: ev.guide, records: recs, headcount: w.headcount, minGroup: MIN_GROUP });
+      const N = ev.headcount ?? w.headcount;
+      const kp = computeKpis({ guide: ev.guide, records: recs, headcount: N, minGroup: MIN_GROUP });
       out.push({
         workplaceId: w.id, workplace: w.name, companyId: w.companyId, company: w.company.name, sector: w.company.sector,
-        evaluationId: ev.id, evaluation: ev.name, guide: ev.guide, n: rows.length, headcount: w.headcount,
-        final: a.final.mean, finalLevel: a.final.level, hi: (hiN / a.n) * 100, hiCi: wilson(hiN, a.n, w.headcount || undefined),
+        evaluationId: ev.id, evaluation: ev.name, guide: ev.guide, n: rows.length, headcount: N,
+        final: a.final.mean, finalLevel: a.final.level, hi: (hiN / a.n) * 100, hiCi: wilson(hiN, a.n, N || undefined),
         categories: Object.fromEntries(a.categories.map((c) => [c.name, { idx: riskIndex(c.mean, g.categoryCuts[c.name], maxCat(c.name)), level: c.level }])),
         kpis: Object.fromEntries(kp.filter((k) => (BENCH_KPIS as readonly string[]).includes(k.id)).map((k) => [k.id, { value: k.value, display: k.display, light: k.light, name: k.name, short: k.short }])),
       });

@@ -40,6 +40,9 @@ export const workplaces = pgTable("workplaces", {
   name: text("name").notNull(),
   address: text("address"),
   headcount: integer("headcount").notNull().default(0),
+  /** Contenedor de las evaluaciones generales de la empresa (todos los centros): no es un centro de la estructura,
+   * su plantilla es 0 y el trabajador elige su centro en el cuestionario. */
+  general: boolean("general").notNull().default(false),
   createdAt: createdAt(),
 });
 
