@@ -17,7 +17,8 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
   const s = await requireUser(["SUPERADMIN"]);
   const q = await searchParams;
   const users = await db.query.users.findMany({ with: { company: true }, orderBy: [asc(schema.users.name)] });
-  const companies = await db.query.companies.findMany({ orderBy: [asc(schema.companies.name)] });
+  // Las empresas demo nunca se asignan a usuarios
+  const companies = await db.query.companies.findMany({ where: eq(schema.companies.demo, false), orderBy: [asc(schema.companies.name)] });
   const editing = q.edit ? users.find((u) => u.id === q.edit) : undefined;
   // Cada inicio de sesión queda en la bitácora (action = "login")
   const logins = await db.select({ uid: schema.auditLogs.userId, n: sql<number>`count(*)::int`, last: sql<Date>`max(${schema.auditLogs.createdAt})` })

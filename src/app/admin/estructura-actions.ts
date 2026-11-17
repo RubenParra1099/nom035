@@ -98,7 +98,7 @@ export async function createClient(input: z.input<typeof Wizard>): Promise<Wizar
   const s = await requireUser(["SUPERADMIN", "CONSULTOR"]);
   const d = Wizard.parse(input);
   return db.transaction(async (tx) => {
-    const [c] = await tx.insert(schema.companies).values({ name: d.company.name, rfc: d.company.rfc || null, contact: d.company.contact || null, sector: d.company.sector || null, headcount: d.company.headcount ?? null }).returning();
+    const [c] = await tx.insert(schema.companies).values({ name: d.company.name, rfc: d.company.rfc || null, contact: d.company.contact || null, sector: d.company.sector || null, headcount: d.company.headcount ?? null, demo: !!s.demoView }).returning();
     const out: WizardResult["evaluations"] = [];
     for (const ce of d.centros) {
       const [w] = await tx.insert(schema.workplaces).values({ companyId: c.id, name: ce.name, address: ce.address || null, headcount: ce.headcount }).returning();

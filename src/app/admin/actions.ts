@@ -16,7 +16,8 @@ export async function createCompany(form: FormData) {
   const s = await requireUser(["SUPERADMIN", "CONSULTOR"]);
   const d = z.object({ name: z.string().min(2), rfc: z.string().optional(), contact: z.string().optional(), sector: z.string().optional() })
     .parse({ name: form.get("name"), rfc: form.get("rfc") || undefined, contact: form.get("contact") || undefined, sector: form.get("sector") || undefined });
-  const [c] = await db.insert(schema.companies).values(d).returning();
+  // En modo demo, la empresa nueva nace como demo
+  const [c] = await db.insert(schema.companies).values({ ...d, demo: !!s.demoView }).returning();
   await audit(s, "create", "company", c.id);
   redirect(`/admin/empresas/${c.id}`);
 }

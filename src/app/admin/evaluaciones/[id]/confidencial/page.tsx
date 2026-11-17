@@ -4,7 +4,7 @@ import EvalHeader from "@/components/EvalHeader";
 import { notFound } from "next/navigation";
 import { and, asc, desc, eq, or } from "drizzle-orm";
 import { db, schema } from "@/db";
-import { requireUser } from "@/lib/auth";
+import { canSeeCompany, requireUser } from "@/lib/auth";
 import { toggleAttended } from "../../../actions";
 import { updateAts } from "../../../gestion-actions";
 import { Drawer, Pill, SaveButton } from "@/components/ui/forms";
@@ -19,9 +19,9 @@ const ATS_TONE = { IDENTIFICADO: "red", CANALIZADO: "amber", EN_ATENCION: "blue"
 export default async function ConfidentialPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ estado?: string; centro?: string }> }) {
   const { id } = await params;
   const { estado = "todos", centro = "" } = await searchParams;
-  await requireUser(["SUPERADMIN", "CONSULTOR"]);
+  const s = await requireUser(["SUPERADMIN", "CONSULTOR"]);
   const ev = await db.query.evaluations.findFirst({ where: eq(schema.evaluations.id, id), with: { workplace: { with: { company: true } } } });
-  if (!ev) notFound();
+  if (!ev || !canSeeCompany(s, ev.workplace.companyId)) notFound();
   const allRows = await db.select({ r: schema.responses, c: schema.confidentialContacts, f: schema.atsFollowups, i: schema.respondentIdentities })
     .from(schema.responses)
     .leftJoin(schema.confidentialContacts, eq(schema.confidentialContacts.responseId, schema.responses.id))

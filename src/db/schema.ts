@@ -19,6 +19,8 @@ export const companies = pgTable("companies", {
   sector: text("sector"),
   /** Total de trabajadores que declara el cliente al darse de alta (los centros se pueden capturar después). */
   headcount: integer("headcount"),
+  /** Empresa de demostración: solo la ven los usuarios con acceso a demos y solo en modo demo. */
+  demo: boolean("demo").notNull().default(false),
   createdAt: createdAt(),
 });
 
@@ -31,6 +33,8 @@ export const users = pgTable("users", {
   /** Para CLIENTE: empresa a la que pertenece. */
   companyId: text("company_id").references(() => companies.id, { onDelete: "set null" }),
   active: boolean("active").notNull().default(true),
+  /** Puede ver las empresas demo y activar el modo demo. */
+  demoAccess: boolean("demo_access").notNull().default(false),
   createdAt: createdAt(),
 });
 

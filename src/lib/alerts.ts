@@ -1,7 +1,7 @@
 import "server-only";
 import { and, eq, inArray, isNull, lte, ne, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
-import type { Session } from "@/lib/auth";
+import { canSeeCompany, type Session } from "@/lib/auth";
 import { computeKpis } from "@/lib/nom035/kpis";
 import { sampleSize } from "@/lib/nom035/score";
 import { MIN_GROUP } from "@/lib/results";
@@ -19,7 +19,7 @@ const daysAhead = (n: number) => new Date(Date.now() + n * 86400000).toISOString
 /** Centros visibles para el usuario (CLIENTE: solo su empresa). */
 async function scope(s: Session) {
   const wps = await db.query.workplaces.findMany({ with: { company: true, evaluations: true } });
-  return wps.filter((w) => s.role !== "CLIENTE" || w.companyId === s.companyId);
+  return wps.filter((w) => canSeeCompany(s, w.companyId));
 }
 
 /** Conteo rápido para el menú: casos ATS vencidos, acciones vencidas y quejas abiertas de más de 30 días. */

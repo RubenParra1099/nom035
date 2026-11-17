@@ -28,7 +28,8 @@ type Metric = { key: string; label: string; unit: string; get: (r: BenchRow) => 
 export default async function BenchmarkPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const sp = await searchParams;
   const s = await requireUser();
-  const all = await loadBenchmark();
+  // Demo y reales nunca se mezclan: solo entran las empresas visibles en la vista actual
+  const all = (await loadBenchmark()).filter((r) => !s.hiddenCompanies?.includes(r.companyId));
   const { own, anonymous } = scopeFor(s, all);
   const guia = sp.guia ?? "";
   const sector = sp.sector ?? "";

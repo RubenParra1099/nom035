@@ -12,6 +12,7 @@ import { CentroEditor, ImportStructure } from "@/components/structure/CentroEdit
 import { guideLabel } from "@/lib/nom035/guideLabel";
 import { GUIDES, levelFor } from "@/lib/nom035/guides";
 import { deleteWorkplace } from "../../actions";
+import { setCompanyDemo } from "../../demo-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -92,7 +93,7 @@ export default async function CompanyPage({ params, searchParams }: {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <nav aria-label="Ruta" className="text-sm text-gray-500"><Link href="/admin" className="hover:text-gray-900">Empresas</Link> › <span>{company.name}</span></nav>
-          <h1 className="flex items-center gap-2 text-2xl font-semibold text-ink">{company.name}<Help id="empresa" /></h1>
+          <h1 className="flex items-center gap-2 text-2xl font-semibold text-ink">{company.name}{company.demo && <span className="rounded bg-amber-500 px-1.5 py-0.5 text-[11px] font-bold tracking-wide text-white">DEMO</span>}<Help id="empresa" /></h1>
           <p className="text-sm text-gray-500">{[company.sector ?? "Giro sin especificar", company.rfc, `${wps.length} ${wps.length === 1 ? "centro" : "centros"}`, `${trabShown.toLocaleString("es-MX")} trabajadores`, `${totals.areas} áreas`].filter(Boolean).join(" · ")}</p>
         </div>
         {edit && <div className="flex flex-wrap items-center gap-2">
@@ -277,6 +278,20 @@ export default async function CompanyPage({ params, searchParams }: {
       {tab === "datos" && edit && (
         <div className="space-y-5">
           <section className="card max-w-2xl p-5"><CompanyForm c={info} /></section>
+          {s.demoAccess && (
+            <form action={setCompanyDemo} className="card flex max-w-2xl flex-wrap items-center justify-between gap-3 border-amber-200 p-5">
+              <input type="hidden" name="id" value={company.id} /><input type="hidden" name="demo" value={company.demo ? "0" : "1"} />
+              <div className="min-w-0 flex-1 text-sm">
+                <h2 className="font-semibold text-ink">{company.demo ? "Empresa de demostración" : "Empresa real"}</h2>
+                <p className="text-gray-600">{company.demo
+                  ? "Solo usted la ve, y solo con el modo demo encendido. No aparece en ningún módulo para otros usuarios."
+                  : "Al marcarla como demo desaparece para todos los demás usuarios y de todos los módulos; usted la verá solo en modo demo."}</p>
+              </div>
+              <ConfirmButton className="btn-secondary" message={company.demo ? `¿Convertir "${company.name}" en empresa real? Será visible para todos los usuarios.` : `¿Marcar "${company.name}" como demo? Dejará de verse para los demás usuarios.`}>
+                {company.demo ? "Convertir en empresa real" : "Marcar como demo"}
+              </ConfirmButton>
+            </form>
+          )}
           {s.role === "SUPERADMIN" && (
             <section className="space-y-3 rounded-xl border border-red-200 p-5">
               <h2 className="text-sm font-semibold text-red-700">Zona de riesgo</h2>

@@ -2,7 +2,7 @@ import Link from "next/link";
 import Help from "@/components/ui/Help";
 import { eq, inArray, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
-import { canEdit, requireUser } from "@/lib/auth";
+import { canEdit, canSeeCompany, requireUser } from "@/lib/auth";
 import { getAlerts } from "@/lib/alerts";
 import { GUIDES, levelFor } from "@/lib/nom035/guides";
 import { sampleSize } from "@/lib/nom035/score";
@@ -13,10 +13,10 @@ export const dynamic = "force-dynamic";
 /** Cartera: cada empresa con su último resultado, avance de captura, casos de Guía I y alertas. */
 export default async function CompaniesPage() {
   const s = await requireUser();
-  const companies = await db.query.companies.findMany({
+  const companies = (await db.query.companies.findMany({
     where: s.role === "CLIENTE" ? eq(schema.companies.id, s.companyId ?? "") : undefined,
     with: { workplaces: { with: { evaluations: true } } },
-  });
+  })).filter((c) => canSeeCompany(s, c.id));
   const evIds = companies.flatMap((c) => c.workplaces.flatMap((w) => w.evaluations.map((e) => e.id)));
   const [stats, ats, alerts] = await Promise.all([
     evIds.length ? db.select({

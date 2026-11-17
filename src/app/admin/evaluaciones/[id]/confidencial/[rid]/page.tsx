@@ -5,7 +5,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import { db, schema } from "@/db";
-import { audit, requireUser } from "@/lib/auth";
+import { audit, canSeeCompany, requireUser } from "@/lib/auth";
 import { folioOf } from "@/lib/results";
 import { ANSWERS, GUIDES, LEVEL_LABEL, type Level } from "@/lib/nom035/guides";
 import { scoreWorker } from "@/lib/nom035/score";
@@ -42,7 +42,7 @@ export default async function WorkerSheet({ params }: { params: Promise<{ id: st
     const hit = ids.find((x) => folioOf(x.id) === rid.toUpperCase());
     if (hit) r = await db.query.responses.findFirst({ where: eq(schema.responses.id, hit.id) });
   }
-  if (!ev || !r) notFound();
+  if (!ev || !r || !canSeeCompany(s, ev.workplace.companyId)) notFound();
   const [contact, follow, ident] = await Promise.all([
     db.query.confidentialContacts.findFirst({ where: eq(schema.confidentialContacts.responseId, r.id) }),
     db.query.atsFollowups.findFirst({ where: eq(schema.atsFollowups.responseId, r.id) }),

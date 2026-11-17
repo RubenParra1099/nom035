@@ -16,8 +16,11 @@ const I = {
   close: <svg viewBox="0 0 20 20" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M5 5l10 10M15 5L5 15" strokeLinecap="round" /></svg>,
 };
 
-export default function AppShell({ user, role, isAdmin, alerts, logout, children }: {
-  user: string; role: string; isAdmin: boolean; alerts: number; logout: () => Promise<void>; children: React.ReactNode;
+export default function AppShell({ user, role, isAdmin, alerts, logout, demo, children }: {
+  user: string; role: string; isAdmin: boolean; alerts: number; logout: () => Promise<void>;
+  /** Solo para usuarios con acceso a demos: estado del modo demo y acción para cambiarlo. */
+  demo?: { on: boolean; toggle: () => Promise<void> };
+  children: React.ReactNode;
 }) {
   const path = usePathname();
   const [open, setOpen] = useState(false);
@@ -46,6 +49,17 @@ export default function AppShell({ user, role, isAdmin, alerts, logout, children
         })}
       </nav>
       <div className="mt-auto space-y-3">
+        {demo && (
+          <form action={demo.toggle}>
+            <button role="switch" aria-checked={demo.on}
+              className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-sm font-medium transition ${demo.on ? "border-amber-400 bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-200" : "border-line text-gray-600 hover:bg-gray-100"}`}>
+              <span className="flex-1 text-left">Modo demo</span>
+              <span className={`relative h-5 w-9 rounded-full transition ${demo.on ? "bg-amber-500" : "bg-gray-300"}`}>
+                <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${demo.on ? "left-[18px]" : "left-0.5"}`} />
+              </span>
+            </button>
+          </form>
+        )}
         <ThemeToggle />
         <div className="flex items-center gap-3 rounded-lg border border-line p-2.5">
           <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gray-100 text-xs font-semibold text-gray-700">{initials}</span>
@@ -72,7 +86,15 @@ export default function AppShell({ user, role, isAdmin, alerts, logout, children
           </div>
         </div>
       )}
-      <main className="mx-auto w-full max-w-[1400px] px-4 py-6 lg:px-8">{children}</main>
+      <main className="mx-auto w-full max-w-[1400px] px-4 py-6 lg:px-8">
+        {demo?.on && (
+          <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900 print:hidden dark:bg-amber-950/40 dark:text-amber-100">
+            <span className="rounded bg-amber-500 px-1.5 py-0.5 text-[11px] font-bold tracking-wide text-white">DEMO</span>
+            Modo demo: solo se muestran las empresas de demostración. Los clientes reales están ocultos.
+          </div>
+        )}
+        {children}
+      </main>
     </div>
   );
 }
