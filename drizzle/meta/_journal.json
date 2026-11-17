@@ -92,6 +92,13 @@
       "when": 1794948575653,
       "tag": "0012_jornada_8_a_15",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1794949850175,
+      "tag": "0013_jornada_todos_8_a_15",
+      "breakpoints": true
     }
   ]
 }
