@@ -1,6 +1,6 @@
 import Help from "@/components/ui/Help";
 import Link from "next/link";
-import { asc } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { requireUser } from "@/lib/auth";
 import { createUser, toggleUser, updateUser } from "../actions";
@@ -8,6 +8,8 @@ import { createUser, toggleUser, updateUser } from "../actions";
 export const dynamic = "force-dynamic";
 
 const ROLE_LABEL = { SUPERADMIN: "Administrador", CONSULTOR: "Consultor", CLIENTE: "Cliente (solo lectura)" } as const;
+const fmt = (d: Date) => d.toLocaleString("es-MX", { timeZone: "America/Mexico_City", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+
 const ROLE_HELP = "Administrador: todo, incluidos usuarios y eliminaciones. Consultor: clientes, evaluaciones, análisis y seguimiento; no administra usuarios. Cliente: solo consulta los resultados agregados de su empresa.";
 
 /** Solo administradores: el consultor no ve esta página ni puede dar de alta o editar usuarios. */
@@ -17,6 +19,15 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
   const users = await db.query.users.findMany({ with: { company: true }, orderBy: [asc(schema.users.name)] });
   const companies = await db.query.companies.findMany({ orderBy: [asc(schema.companies.name)] });
   const editing = q.edit ? users.find((u) => u.id === q.edit) : undefined;
+  // Cada inicio de sesión queda en la bitácora (action = "login")
+  const logins = await db.select({ uid: schema.auditLogs.userId, n: sql<number>`count(*)::int`, last: sql<Date>`max(${schema.auditLogs.createdAt})` })
+    .from(schema.auditLogs).where(eq(schema.auditLogs.action, "login")).groupBy(schema.auditLogs.userId);
+  const loginOf = (id: string) => logins.find((l) => l.uid === id);
+  const recent = editing
+    ? await db.select({ at: schema.auditLogs.createdAt }).from(schema.auditLogs)
+        .where(and(eq(schema.auditLogs.action, "login"), eq(schema.auditLogs.userId, editing.id)))
+        .orderBy(desc(schema.auditLogs.createdAt)).limit(10)
+    : [];
 
   return (
     <div className="space-y-6">
@@ -30,13 +41,18 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="card overflow-x-auto lg:col-span-2">
           <table className="w-full">
-            <thead className="border-b border-gray-100"><tr><th className="th">Nombre</th><th className="th">Rol</th><th className="th">Empresa</th><th className="th"></th></tr></thead>
+            <thead className="border-b border-gray-100"><tr><th className="th">Nombre</th><th className="th">Rol</th><th className="th">Empresa</th><th className="th text-right">Accesos</th><th className="th"></th></tr></thead>
             <tbody className="divide-y divide-gray-100">
               {users.map((u) => (
                 <tr key={u.id} className={`${u.active ? "" : "opacity-50"} ${editing?.id === u.id ? "bg-brand-50" : ""}`}>
                   <td className="td"><div className="font-medium">{u.name}{u.id === s.uid && <span className="ml-1.5 text-xs font-normal text-gray-400">(tú)</span>}</div><div className="text-xs text-gray-500">{u.email}</div></td>
                   <td className="td">{ROLE_LABEL[u.role]}{!u.active && <div className="text-xs text-gray-500">Inactivo</div>}</td>
                   <td className="td">{u.company?.name ?? "—"}</td>
+                  <td className="td text-right">{(() => {
+                    const l = loginOf(u.id);
+                    return l ? <><div className="font-semibold tabular-nums">{l.n.toLocaleString("es-MX")}</div><div className="whitespace-nowrap text-xs text-gray-500">Último: {fmt(new Date(l.last))}</div></>
+                      : <span className="text-xs text-gray-400">Nunca ha entrado</span>;
+                  })()}</td>
                   <td className="td">
                     <div className="flex items-center justify-end gap-3">
                       <Link href={`/admin/usuarios?edit=${u.id}`} className="text-sm font-medium text-brand-700 hover:underline">Editar</Link>
@@ -70,6 +86,13 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
               </select></div>
             <p className="text-xs text-gray-500">{ROLE_HELP}</p>
             <button className="btn-primary w-full">Guardar cambios</button>
+            <div className="border-t border-line pt-3">
+              <h3 className="text-sm font-semibold">Accesos al sistema <span className="font-normal tabular-nums text-gray-500">{loginOf(editing.id)?.n ?? 0}</span></h3>
+              {recent.length ? (
+                <ul className="mt-1 space-y-0.5 text-xs text-gray-600">{recent.map((r, i) => <li key={i}>{fmt(r.at)}</li>)}</ul>
+              ) : <p className="mt-1 text-xs text-gray-500">Este usuario aún no ha iniciado sesión.</p>}
+              {recent.length === 10 && <p className="mt-1 text-[11px] text-gray-400">Se muestran los 10 más recientes.</p>}
+            </div>
           </form>
         ) : (
           <form action={createUser} className="card space-y-3 p-5">
