@@ -2,6 +2,7 @@ import { G3_TO_G2, GuideId } from "./guides";
 import { answerIndex } from "./score";
 import { parseYesNo } from "./guia1";
 import { IDENT_FIELDS } from "./catalogo";
+import { JORNADA_DIURNA } from "./demographics";
 
 export interface NormalizedResponse {
   submittedAt: Date | null;
@@ -39,7 +40,7 @@ export const DEMOGRAPHIC_FIELDS: { key: string; label: string; match: RegExp }[]
 ];
 export const PHYSICAL_FIELDS = ["Temperatura", "Humedad", "Iluminación", "Ventilación", "Higiene", "Ruido"];
 export const EDUCATION_LEVELS = [
-  "Sin Formación", "Primaria", "Secundaria", "Preparatoria o Bachillerato", "Técnico Superior", "Licenciatura", "Maestría", "Doctorado",
+  "Sin Formación", "Primaria", "Secundaria", "Preparatoria o Bachillerato", "Técnico Superior", "Licenciatura", "Ingeniería", "Maestría", "Doctorado",
 ];
 
 const G1_KEYS = [
@@ -121,12 +122,15 @@ export function normalizeSheet(rows: unknown[][]) {
       if (v) estudios = v.toLowerCase().startsWith("incomp") ? `${lvl} (incompleta)` : lvl;
     }
     if (!estudios && eduSingle >= 0) estudios = cell(eduSingle);
+    // Los formularios anteriores dicen "Fijo Diurno (Entre las 6:00 y 20:00 horas)"; la jornada diurna vigente es de 8:00 a 15:00
+    const demo = Object.fromEntries(demoCols.map((f) => [f.key, cell(f.col)]));
+    if (/^\s*fijo\s+diurno/i.test(demo.jornada ?? "")) demo.jornada = JORNADA_DIURNA;
     const contact = cell(contactCol);
     const ident = Object.fromEntries(identCols.map(({ key, col }) => [key, cell(col) ?? ""])) as unknown as RespondentIdentity;
     responses.push({
       submittedAt: parseDate(tsCol >= 0 ? r[tsCol] : null),
       demographics: {
-        ...Object.fromEntries(demoCols.map((f) => [f.key, cell(f.col)])),
+        ...demo,
         estudios,
       },
       physical: Object.fromEntries(physCols.map(({ p, col }) => [p, cell(col)])),

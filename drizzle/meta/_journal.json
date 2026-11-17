@@ -85,6 +85,13 @@
       "when": 1794926422664,
       "tag": "0011_empresas_demo",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1794948575653,
+      "tag": "0012_jornada_8_a_15",
+      "breakpoints": true
     }
   ]
 }
