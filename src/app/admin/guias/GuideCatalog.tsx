@@ -344,11 +344,15 @@ function PrintView({ tab, gid, withIdent, withDemo, withG1 }: { tab: Tab; gid: G
         <div className="mt-4 break-inside-avoid">
           <h3 className="mb-1 text-[12px] font-semibold uppercase tracking-wide">Datos generales</h3>
           <div className="grid grid-cols-2 gap-x-6 gap-y-1.5">
-            {DEMO_QUESTIONS.map((d) => (
-              <div key={d.key} className="text-[11px]"><b>{d.label}:</b>{" "}
-                {d.options && d.options.length <= 5 ? d.options.map((o) => <span key={o} className="mr-2 whitespace-nowrap">{box} {o}</span>) : <span>__________________________</span>}
-              </div>
-            ))}
+            {DEMO_QUESTIONS.map((d) => {
+              // En papel, estudios se marca por nivel más una casilla de "Incompleta" en vez de repetir cada nivel
+              const opts = d.key === "estudios" ? [...(d.options ?? []).filter((o) => !o.includes("(incompleta)")), "Incompleta"] : d.options;
+              return (
+                <div key={d.key} className="text-[11px]"><b>{d.label}:</b>{" "}
+                  {opts?.length ? opts.map((o) => <span key={o} className="mr-2 inline-block whitespace-nowrap">{box} {o}</span>) : <span>__________________________</span>}
+                </div>
+              );
+            })}
           </div>
           <h3 className="mb-1 mt-3 text-[12px] font-semibold uppercase tracking-wide">Condiciones del entorno físico</h3>
           <table className="w-full border-collapse text-[11px]">
