@@ -175,6 +175,12 @@ export default async function ConfidentialPage({ params, searchParams }: { param
         <details open className="card overflow-x-auto">
           <summary className="cursor-pointer px-4 py-3 font-semibold">Respuestas al cuestionario <span className="font-normal tabular-nums text-gray-500">{participants.length}</span>
             <span className="ml-2 text-xs font-normal text-gray-500">Abra una respuesta para ver el cuestionario completo (Guía I y reactivos)</span></summary>
+          <div className="flex flex-wrap items-center justify-end gap-3 px-4 pb-3">
+            <span className="text-xs text-gray-500">Una ficha por hoja; en el diálogo elija “Guardar como PDF” para un solo archivo.</span>
+            <Link href={`${path}/todas${centro ? `?centro=${encodeURIComponent(centro)}` : ""}`} className="btn-secondary py-1 text-sm">
+              Imprimir todas las fichas ({participants.length}){centro ? ` · ${centro}` : ""}
+            </Link>
+          </div>
           <table className="w-full min-w-[900px]">
             <thead className="border-y border-gray-100"><tr><th className="th">Trabajador</th><th className="th">Centro de trabajo</th><th className="th">Área de adscripción</th><th className="th">Puesto</th><th className="th">Respondió</th><th className="th">Calificación final</th><th className="th">Guía I</th></tr></thead>
             <tbody className="divide-y divide-gray-100">
