@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ANSWERS } from "@/lib/nom035/guides";
 import { G1_SECTIONS } from "@/lib/nom035/guia1";
-import { DEMO_QUESTIONS, PHYSICAL_ITEMS, PHYSICAL_OPTIONS } from "@/lib/nom035/demographics";
+import { DEMO_QUESTIONS, JORNADA_DIURNA, PHYSICAL_ITEMS, PHYSICAL_OPTIONS } from "@/lib/nom035/demographics";
 import { CATALOGO, IDENT_FIELDS, TIPOS_PLAZA, type IdentKey } from "@/lib/nom035/catalogo";
 import { submitSurvey } from "./actions";
 
@@ -49,7 +49,7 @@ export default function Survey(p: Props) {
   const [ident, setIdent] = useState<Record<IdentKey, Pick>>({
     workCenter: emptyPick, positionType: emptyPick, fullName: emptyPick, position: emptyPick, area: emptyPick,
   });
-  const [demo, setDemo] = useState<Record<string, string | null>>({});
+  const [demo, setDemo] = useState<Record<string, string | null>>({ jornada: JORNADA_DIURNA });
   const [phys, setPhys] = useState<Record<string, string | null>>({});
   const [g1, setG1] = useState<(boolean | null)[]>(Array(20).fill(null));
   const [items, setItems] = useState<Record<number, number | null>>({});
@@ -73,7 +73,7 @@ export default function Survey(p: Props) {
     try { localStorage.setItem(savedKey(p.token), JSON.stringify(s)); } catch { /* sin almacenamiento: se contesta igual, sin guardar avance */ }
   }, [ready, done, p.token, stepIdx, consent, ident, demo, phys, g1, items, servesClients, isBoss, contactName, comment]);
   function resume(s: Saved) {
-    setConsent(s.consent); setIdent(s.ident); setDemo(s.demo); setPhys(s.phys); setG1(s.g1); setItems(s.items);
+    setConsent(s.consent); setIdent(s.ident); setDemo({ ...s.demo, jornada: JORNADA_DIURNA }); setPhys(s.phys); setG1(s.g1); setItems(s.items);
     setServesClients(s.servesClients); setIsBoss(s.isBoss); setContactName(s.contactName); setComment(s.comment);
     setStepIdx(s.stepIdx); setPending(null); setReady(true);
   }

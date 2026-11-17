@@ -12,7 +12,7 @@ export const DEMO_QUESTIONS: { key: string; label: string; options?: string[]; f
   { key: "departamento", label: "Departamento / sección / área", fromEvaluation: "departments" },
   { key: "puesto", label: "Tipo de puesto", fromEvaluation: "positions" },
   { key: "contratacion", label: "Tipo de contratación", options: ["Por obra o proyecto", "Por tiempo determinado (Temporal)", "Tiempo Indeterminado", "Honorarios"] },
-  { key: "jornada", label: "Tipo de jornada de trabajo", options: ["Fijo Nocturno (Entre las 20:00 y 6:00 horas)", "Fijo Mixto (Combinación de Nocturno y Diurno)", JORNADA_DIURNA] },
+  { key: "jornada", label: "Tipo de jornada de trabajo", options: [JORNADA_DIURNA] },
   { key: "rotacion", label: "¿Realiza rotación de turnos?", options: ["Sí", "No"] },
   { key: "tiempoPuesto", label: "Tiempo en el puesto actual", options: TIEMPOS },
   { key: "experiencia", label: "Tiempo de experiencia laboral", options: TIEMPOS },

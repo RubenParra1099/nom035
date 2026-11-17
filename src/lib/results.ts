@@ -6,6 +6,7 @@ import { GUIDES, type GuideId } from "@/lib/nom035/guides";
 import { maskConditional, scoreWorker } from "@/lib/nom035/score";
 import { evaluateG1 } from "@/lib/nom035/guia1";
 import type { NormalizedResponse } from "@/lib/nom035/importer";
+import { JORNADA_DIURNA } from "@/lib/nom035/demographics";
 
 /** Calcula y guarda una respuesta (en línea o importada). Los reactivos condicionados se anulan si el filtro es "No". */
 export async function saveResponse(
@@ -17,7 +18,8 @@ export async function saveResponse(
   const [row] = await db.insert(schema.responses).values({
     evaluationId, source,
     submittedAt: r.submittedAt ?? new Date(),
-    demographics: r.demographics, physical: r.physical, items,
+    // Todo el personal trabaja de 8:00 a 15:00
+    demographics: { ...r.demographics, jornada: JORNADA_DIURNA }, physical: r.physical, items,
     servesClients: r.servesClients, isBoss: r.isBoss,
     guideI: r.g1.some((x) => x !== null) ? r.g1 : null,
     atsEvent: ats.event, atsRequires: ats.requiresEvaluation,
