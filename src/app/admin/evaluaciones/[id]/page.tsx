@@ -75,6 +75,7 @@ export default async function EvaluationPage({ params }: { params: Promise<{ id:
             <img src={qr} alt="Código QR del cuestionario" className="h-44 w-44 rounded-lg border" />
             <div className="min-w-0 flex-1 space-y-3">
               <CopyField value={url} />
+              <Link href={`/admin/evaluaciones/${id}/qr`} className="btn-secondary">⬇ Hoja con QR (PDF o imagen)</Link>
               <a href={url} target="_blank" className="text-sm text-brand-700 hover:underline">Abrir cuestionario ↗</a>
               {edit && (
                 <div className="flex flex-wrap gap-2">
