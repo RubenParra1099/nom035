@@ -26,7 +26,7 @@ const TABS: { id: Tab; label: string }[] = [
 ];
 
 export default async function CompanyPage({ params, searchParams }: {
-  params: Promise<{ id: string }>; searchParams: Promise<{ centro?: string; tab?: string; nuevo?: string; creado?: string }>;
+  params: Promise<{ id: string }>; searchParams: Promise<{ centro?: string; tab?: string; nuevo?: string; creado?: string; guia?: string }>;
 }) {
   const { id } = await params;
   const q = await searchParams;
@@ -47,6 +47,12 @@ export default async function CompanyPage({ params, searchParams }: {
   const requested = q.nuevo === "centro" ? "estructura" : q.centro && !q.tab ? "evaluaciones" : q.tab;
   const tab: Tab = TABS.some((t) => t.id === requested) && (requested !== "datos" || edit) ? (requested as Tab) : hasEval ? "resumen" : "estructura";
   const focus = wps.find((w) => w.id === q.centro);
+  // Filtro por guía de la pestaña Evaluaciones; la Guía I se aplica como complemento de la II o la III
+  const guia = q.guia === "1" || q.guia === "2" || q.guia === "3" ? q.guia : "";
+  const byGuide = (e: (typeof all)[number]["evaluations"][number]) =>
+    !guia || (guia === "1" ? e.includeGuideI : e.guide === (guia === "2" ? "GUIA_II" : "GUIA_III"));
+  const evalsHref = (centro: string | undefined, g: string) =>
+    `${base}?${new URLSearchParams({ tab: "evaluaciones", ...(centro ? { centro } : {}), ...(g ? { guia: g } : {}) })}`;
 
   const evalIds = all.flatMap((x) => x.evaluations.map((e) => e.id));
   const counts = evalIds.length
@@ -231,25 +237,34 @@ export default async function CompanyPage({ params, searchParams }: {
       {/* ---------- Evaluaciones ---------- */}
       {tab === "evaluaciones" && (
         <div className="space-y-6">
+          {hasEval && (
+            <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Filtrar por guía">
+              <span className="text-sm text-gray-500">Guía:</span>
+              {([["", "Todas"], ["1", "Guía I"], ["2", "Guía II"], ["3", "Guía III"]] as const).map(([g, l]) => (
+                <Link key={l} href={evalsHref(focus?.id, g)} aria-current={guia === g ? "true" : undefined}
+                  className={`rounded-full border px-3 py-1 text-xs font-medium transition ${guia === g ? "border-brand-600 bg-brand-50 text-brand-700" : "border-line text-gray-600 hover:bg-gray-100"}`}>{l}</Link>
+              ))}
+            </div>
+          )}
           {!focus && (general?.evaluations.length || (edit && wps.length > 0)) ? (
             <section className="space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div><h2 className="text-base font-semibold text-ink">Evaluación general · todos los centros</h2><p className="text-xs text-gray-500">Un solo enlace para toda la empresa: cada trabajador elige su centro de trabajo y el tablero filtra por centro.{general ? ` · ${respOf(general)} respuestas` : ""}</p></div>
                 {edit && <Link href={`${base}/nueva-evaluacion`} className="btn-primary">+ Nueva evaluación general</Link>}
               </div>
-              {general && [...general.evaluations].sort((a, b) => +b.createdAt - +a.createdAt).map((e) => card(general, e))}
-              {!general?.evaluations.length && <div className="rounded-xl border border-dashed border-gray-300 p-6 text-center text-sm text-gray-500">Aún no hay evaluaciones generales.</div>}
+              {general && [...general.evaluations].filter(byGuide).sort((a, b) => +b.createdAt - +a.createdAt).map((e) => card(general, e))}
+              {!general?.evaluations.some(byGuide) && <div className="rounded-xl border border-dashed border-gray-300 p-6 text-center text-sm text-gray-500">{general?.evaluations.length ? "Ninguna evaluación general usa esta guía." : "Aún no hay evaluaciones generales."}</div>}
             </section>
           ) : null}
-          {focus && <p className="text-sm text-gray-600">Mostrando <b>{focus.name}</b>. <Link href={`${base}?tab=evaluaciones`} className="font-medium text-brand-700 hover:underline">Ver todos los centros</Link></p>}
+          {focus && <p className="text-sm text-gray-600">Mostrando <b>{focus.name}</b>. <Link href={evalsHref(undefined, guia)} className="font-medium text-brand-700 hover:underline">Ver todos los centros</Link></p>}
           {(focus ? [focus] : wps).map((w) => (
             <section key={w.id} className="space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div><h2 className="text-base font-semibold text-ink">{w.name}</h2><p className="text-xs text-gray-500">{w.headcount} trabajadores · {guideLabel(w.headcount)} · {respOf(w)} respuestas</p></div>
                 {edit && <Link href={`/admin/centros/${w.id}/nueva-evaluacion`} className="btn-primary">+ Nueva evaluación</Link>}
               </div>
-              {[...w.evaluations].sort((a, b) => +b.createdAt - +a.createdAt).map((e) => card(w, e))}
-              {!w.evaluations.length && <div className="rounded-xl border border-dashed border-gray-300 p-6 text-center text-sm text-gray-500">Este centro aún no tiene evaluaciones.</div>}
+              {[...w.evaluations].filter(byGuide).sort((a, b) => +b.createdAt - +a.createdAt).map((e) => card(w, e))}
+              {!w.evaluations.some(byGuide) && <div className="rounded-xl border border-dashed border-gray-300 p-6 text-center text-sm text-gray-500">{w.evaluations.length ? "Este centro no tiene evaluaciones con esta guía." : "Este centro aún no tiene evaluaciones."}</div>}
             </section>
           ))}
           {!wps.length && <p className="text-sm text-gray-500">Primero capture la <Link className="font-medium text-brand-700 hover:underline" href={`${base}?tab=estructura`}>estructura</Link>.</p>}
