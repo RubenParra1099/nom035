@@ -19,7 +19,7 @@ type Props = {
 };
 type Step =
   | { kind: "intro" } | { kind: "ident" } | { kind: "demo" } | { kind: "physical" }
-  | { kind: "g1"; part: number } | { kind: "section"; idx: number } | { kind: "final" };
+  | { kind: "g1"; part: number } | { kind: "g1done" } | { kind: "section"; idx: number } | { kind: "final" };
 
 const G1_OFFSET = [0, 6, 8, 15];
 
@@ -47,12 +47,15 @@ export default function Survey(p: Props) {
     if (p.includeGuideI) {
       s.push({ kind: "g1", part: 0 });
       if (g1Event) s.push({ kind: "g1", part: 1 }, { kind: "g1", part: 2 }, { kind: "g1", part: 3 });
+      // Aviso de fin de la Guía I antes de empezar la Guía II/III
+      s.push({ kind: "g1done" });
     }
     p.sections.forEach((_, idx) => s.push({ kind: "section", idx }));
     s.push({ kind: "final" });
     return s;
   }, [p.includeGuideI, p.sections, g1Event]);
   const step = steps[stepIdx];
+  const guideName = p.guide === "GUIA_III" ? "Guía III" : "Guía II";
 
   const demoQs = DEMO_QUESTIONS.map((q) => ({
     ...q,
@@ -235,6 +238,24 @@ export default function Survey(p: Props) {
         </div>
       )}
 
+      {step.kind === "g1done" && (
+        <div className="space-y-5 py-4 text-center">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-100 text-2xl text-green-700" aria-hidden>✓</div>
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">Ha terminado la evaluación de la Guía I</h2>
+            <p className="text-sm text-gray-500">Acontecimientos traumáticos severos</p>
+          </div>
+          <p className="text-[15px] text-gray-700">
+            A continuación pasará a la evaluación de la <b>{guideName}</b>:<br />
+            {p.guide === "GUIA_III" ? "Factores de riesgo psicosocial y entorno organizacional." : "Factores de riesgo psicosocial."}
+          </p>
+          <div className="mx-auto max-w-sm rounded-xl bg-brand-50 p-4 text-sm text-gray-700">
+            <b>{p.guide === "GUIA_III" ? "72" : "46"} preguntas · aprox. {p.guide === "GUIA_III" ? "20" : "12"} minutos</b>
+            <p className="mt-1">Conteste según su experiencia; no hay respuestas correctas o incorrectas.</p>
+          </div>
+        </div>
+      )}
+
       {step.kind === "section" && (() => {
         const sec = p.sections[step.idx];
         const filterVal = sec.filter === "clientes" ? servesClients : sec.filter === "jefe" ? isBoss : true;
@@ -281,7 +302,7 @@ export default function Survey(p: Props) {
         {stepIdx > 0 ? <button className="btn-secondary" onClick={back}>Atrás</button> : <span />}
         {step.kind === "final"
           ? <button className="btn-primary" onClick={send} disabled={sending}>{sending ? "Enviando…" : "Enviar respuestas"}</button>
-          : <button className="btn-primary" onClick={next}>Continuar</button>}
+          : <button className="btn-primary" onClick={next}>{step.kind === "g1done" ? `Continuar a ${guideName}` : "Continuar"}</button>}
       </div>
     </Shell>
   );
