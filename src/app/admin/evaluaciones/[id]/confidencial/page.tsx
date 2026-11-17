@@ -8,6 +8,8 @@ import { canSeeCompany, requireUser } from "@/lib/auth";
 import { toggleAttended } from "../../../actions";
 import { updateAts } from "../../../gestion-actions";
 import { Drawer, Pill, SaveButton } from "@/components/ui/forms";
+import { folioOf } from "@/lib/results";
+import { LEVEL_LABEL, type Level } from "@/lib/nom035/guides";
 
 const ATS_STATUS = {
   IDENTIFICADO: "Identificado", CANALIZADO: "Canalizado", EN_ATENCION: "En atención", ATENDIDO: "Atendido", NO_LOCALIZABLE: "No localizable (anónimo)",
@@ -34,13 +36,17 @@ export default async function ConfidentialPage({ params, searchParams }: { param
     .innerJoin(schema.responses, eq(schema.confidentialContacts.responseId, schema.responses.id))
     .leftJoin(schema.respondentIdentities, eq(schema.respondentIdentities.responseId, schema.responses.id))
     .where(and(eq(schema.responses.evaluationId, id), eq(schema.responses.atsEvent, false)));
-  const allParticipants = await db.select({ rid: schema.responses.id, i: schema.respondentIdentities })
-    .from(schema.respondentIdentities)
-    .innerJoin(schema.responses, eq(schema.respondentIdentities.responseId, schema.responses.id))
+  // Todas las respuestas (identificadas o anónimas) para abrir la ficha con el cuestionario completo
+  const allParticipants = await db.select({
+    rid: schema.responses.id, at: schema.responses.submittedAt, score: schema.responses.finalScore, level: schema.responses.finalLevel,
+    g1: schema.responses.guideI, atsEvent: schema.responses.atsEvent, atsRequires: schema.responses.atsRequires, i: schema.respondentIdentities,
+  })
+    .from(schema.responses)
+    .leftJoin(schema.respondentIdentities, eq(schema.respondentIdentities.responseId, schema.responses.id))
     .where(eq(schema.responses.evaluationId, id))
-    .orderBy(asc(schema.respondentIdentities.workCenter), asc(schema.respondentIdentities.area), asc(schema.respondentIdentities.fullName));
+    .orderBy(asc(schema.respondentIdentities.workCenter), asc(schema.respondentIdentities.area), asc(schema.respondentIdentities.fullName), desc(schema.responses.submittedAt));
   // Filtro por centro de trabajo (evaluaciones generales): aplica a casos, indicadores, solicitudes y participantes
-  const centros = [...new Set(allParticipants.map((x) => x.i.workCenter))].sort((a, b) => a.localeCompare(b, "es"));
+  const centros = [...new Set(allParticipants.flatMap((x) => x.i ? [x.i.workCenter] : []))].sort((a, b) => a.localeCompare(b, "es"));
   const inCentro = (i: { workCenter: string } | null) => !centro || i?.workCenter === centro;
   const rows = allRows.filter((x) => inCentro(x.i));
   const others = allOthers.filter((x) => inCentro(x.i));
@@ -166,18 +172,21 @@ export default async function ConfidentialPage({ params, searchParams }: { param
         </div>
       )}
       {participants.length > 0 && (
-        <details className="card overflow-x-auto">
-          <summary className="cursor-pointer px-4 py-3 font-semibold">Participantes identificados <span className="font-normal tabular-nums text-gray-500">{participants.length}</span></summary>
-          <table className="w-full min-w-[760px]">
-            <thead className="border-y border-gray-100"><tr><th className="th">Nombre completo</th><th className="th">Centro de trabajo</th><th className="th">Área de adscripción</th><th className="th">Puesto</th><th className="th">Tipo de plaza</th></tr></thead>
+        <details open className="card overflow-x-auto">
+          <summary className="cursor-pointer px-4 py-3 font-semibold">Respuestas al cuestionario <span className="font-normal tabular-nums text-gray-500">{participants.length}</span>
+            <span className="ml-2 text-xs font-normal text-gray-500">Abra una respuesta para ver el cuestionario completo (Guía I y reactivos)</span></summary>
+          <table className="w-full min-w-[900px]">
+            <thead className="border-y border-gray-100"><tr><th className="th">Trabajador</th><th className="th">Centro de trabajo</th><th className="th">Área de adscripción</th><th className="th">Puesto</th><th className="th">Respondió</th><th className="th">Calificación final</th><th className="th">Guía I</th></tr></thead>
             <tbody className="divide-y divide-gray-100">
-              {participants.map(({ rid, i }) => (
+              {participants.map(({ rid, i, at, score, level, g1, atsEvent, atsRequires }) => (
                 <tr key={rid}>
-                  <td className="td"><Link href={`${path}/${rid}`} className="font-medium text-brand-700 hover:underline">{i.fullName}</Link></td>
-                  <td className="td text-sm">{i.workCenter}</td>
-                  <td className="td text-sm">{i.area}</td>
-                  <td className="td text-sm">{i.position}</td>
-                  <td className="td text-sm">{i.positionType}</td>
+                  <td className="td"><Link href={`${path}/${rid}`} className="font-medium text-brand-700 hover:underline">{i?.fullName ?? `Anónimo · ${folioOf(rid)}`}</Link></td>
+                  <td className="td text-sm">{i?.workCenter ?? "—"}</td>
+                  <td className="td text-sm">{i?.area ?? "—"}</td>
+                  <td className="td text-sm">{i?.position ?? "—"}</td>
+                  <td className="td text-sm tabular-nums">{at.toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" })}</td>
+                  <td className="td text-sm tabular-nums">{score} · {LEVEL_LABEL[level as Level] ?? level}</td>
+                  <td className={`td text-sm ${atsRequires ? "font-semibold text-red-600" : ""}`}>{atsRequires ? "Requiere valoración" : atsEvent ? "Vivió ATS" : g1 ? "Sin acontecimiento" : "No aplicada"}</td>
                 </tr>
               ))}
             </tbody>
