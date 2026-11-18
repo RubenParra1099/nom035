@@ -146,8 +146,7 @@ export const HELP = {
   "co.ranking": { title: "Ranking", text: "Porcentaje de trabajadores en nivel alto o muy alto en cada centro, con su margen de error. La línea vertical es el promedio de la cartera." },
   "co.heatmap": { title: "Mapa de calor del portafolio", text: "Todos los centros en filas y las categorías e indicadores en columnas, coloreados por nivel o semáforo. El glosario explica las siglas." },
   guias: { title: "Guías de referencia", text: "Las tres guías de la NOM-035 en sus tres modalidades: como la ve el trabajador, en vista de especialista (con puntos y dominios) y en formato para imprimir. También descarga la plantilla de Excel." },
-  usuarios: { title: "Usuarios", text: "Solo el administrador crea y edita usuarios.\nAdministrador: acceso total.\nConsultor: gestiona evaluaciones de las empresas.\nCliente: consulta los resultados de su empresa, sin datos confidenciales.
-Cliente de prueba: igual que Cliente, pero no puede imprimir ni descargar PDF, Excel, Word o CSV." },
+  usuarios: { title: "Usuarios", text: "Solo el administrador crea y edita usuarios.\nAdministrador: acceso total.\nConsultor: gestiona evaluaciones de las empresas.\nCliente: consulta los resultados de su empresa, sin datos confidenciales.\nCliente de prueba: igual que Cliente, pero no puede imprimir ni descargar PDF, Excel, Word o CSV." },
 } as const satisfies Record<string, { title: string; text: string }>;
 
 export type HelpId = keyof typeof HELP;
