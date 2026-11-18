@@ -13,6 +13,8 @@ export type ComplianceInput = {
   atsRequired: number; atsCanalized: number;
   actions: { dueDate: string; doneAt: string | null }[];
   complaints: number; trainings: number; reportSaved: boolean;
+  /** Exámenes médicos o psicológicos registrados (5.6) y mejor cobertura de difusión con acuse, 0–1 (5.7). */
+  exams?: number; dissemination?: number | null;
   manual: Record<string, ManualMark>;
   today?: string;
 };
@@ -65,7 +67,10 @@ export function complianceChecks(c: ComplianceInput): { checks: CheckResult[]; i
     detail: !needsProgram && total === 0 ? "El nivel final es bajo o nulo; el programa no es obligatorio." : total === 0 ? "El nivel final es medio o mayor y no hay acciones registradas." : `${total} acciones · ${done} cumplidas · ${overdue} vencidas.`, source: "auto" });
 
   // 5.6 Exámenes médicos
-  checks.push(manual("MED", "5.6", "Exámenes médicos y evaluaciones psicológicas", "Practicarlos a los trabajadores expuestos a violencia laboral o a factores de riesgo cuando haya signos o síntomas.", true));
+  const mm = m("MED"), exams = c.exams ?? 0;
+  checks.push({ id: "MED", numeral: "5.6", title: "Exámenes médicos y evaluaciones psicológicas", what: "Practicarlos a los trabajadores expuestos a violencia laboral o a factores de riesgo cuando haya signos o síntomas.",
+    status: small ? "na" : exams > 0 || mm?.done ? "ok" : "no",
+    detail: small ? "No aplica a centros de 15 trabajadores o menos." : exams > 0 ? `${exams} exámenes o evaluaciones registrados.` : mm?.done ? (mm.note || "Marcado como cumplido.") : "Sin exámenes registrados en Gestión preventiva.", source: "mixto", mark: mm });
 
   // 8.1 b) Quejas
   const qm = m("QUEJAS");
@@ -74,10 +79,11 @@ export function complianceChecks(c: ComplianceInput): { checks: CheckResult[]; i
     detail: small ? "No aplica a centros de 15 trabajadores o menos." : c.complaints > 0 ? `${c.complaints} quejas registradas en la plataforma.` : qm?.done ? (qm.note || "Marcado como cumplido.") : "Sin quejas registradas ni confirmación del mecanismo.", source: "mixto", mark: qm });
 
   // 5.7 Difusión y capacitación
-  const dm = m("DIF");
+  const dm = m("DIF"), cov = c.dissemination ?? 0, difOk = !!dm?.done || cov >= 0.8;
   checks.push({ id: "DIF", numeral: "5.7 · 8.2 i)", title: "Difusión y capacitación", what: "Informar al personal la política, las medidas adoptadas y los resultados; capacitar a quienes lo requieran.",
-    status: dm?.done && c.trainings > 0 ? "ok" : dm?.done || c.trainings > 0 ? "partial" : "no",
-    detail: [c.trainings > 0 ? `${c.trainings} capacitaciones registradas` : "Sin capacitaciones registradas", dm?.done ? "difusión confirmada" : "difusión sin confirmar"].join(" · ") + ".", source: "mixto", mark: dm });
+    status: difOk && c.trainings > 0 ? "ok" : difOk || c.trainings > 0 || cov > 0 ? "partial" : "no",
+    detail: [c.trainings > 0 ? `${c.trainings} capacitaciones registradas` : "Sin capacitaciones registradas",
+      cov > 0 ? `difusión con acuse al ${Math.round(cov * 100)}% del personal` : dm?.done ? "difusión confirmada por el consultor" : "difusión sin confirmar"].join(" · ") + ".", source: "mixto", mark: dm });
 
   // 5.8 Registros
   checks.push({ id: "REG", numeral: "5.8", title: "Registros e informe de resultados", what: "Informe de la identificación y análisis, medidas adoptadas y trabajadores atendidos.",
@@ -92,3 +98,11 @@ export function complianceChecks(c: ComplianceInput): { checks: CheckResult[]; i
 }
 
 export const MANUAL_IDS = ["POL", "MED", "QUEJAS", "DIF"] as const;
+
+/** UMA diaria vigente (INEGI, DOF 9-ene-2026; aplica desde el 1-feb-2026). Actualizar cada año. */
+export const UMA = { value: 117.31, year: 2026 };
+/** LFT art. 994 fr. V: multa de 250 a 5,000 UMA por cada infracción a las normas de seguridad y salud. */
+export function fineExposure(checks: CheckResult[], uma = UMA.value) {
+  const pending = checks.filter((c) => c.status === "no" || c.status === "partial");
+  return { pending, min: pending.length * 250 * uma, max: pending.length * 5000 * uma };
+}

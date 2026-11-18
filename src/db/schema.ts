@@ -177,6 +177,40 @@ export const trainings = pgTable("trainings", {
   createdAt: createdAt(),
 }, (t) => [index("trainings_wp_idx").on(t.workplaceId)]);
 
+/** Exámenes médicos y evaluaciones psicológicas (numeral 5.6). Sin datos clínicos: solo el registro de que se practicaron. */
+export const medicalExams = pgTable("medical_exams", {
+  id: id(),
+  workplaceId: text("workplace_id").notNull().references(() => workplaces.id, { onDelete: "cascade" }),
+  examDate: date("exam_date", { mode: "string" }).notNull(),
+  kind: text("kind").notNull(), // MEDICO | PSICOLOGICO
+  reason: text("reason").notNull(), // GUIA_I | VIOLENCIA | RIESGO_ALTO | SINTOMAS | OTRO
+  folio: text("folio"),
+  area: text("area"),
+  provider: text("provider"),
+  result: text("result").notNull(), // APTO | SEGUIMIENTO | CANALIZADO
+  createdAt: createdAt(),
+}, (t) => [index("medical_exams_wp_idx").on(t.workplaceId)]);
+
+/** Difusión a los trabajadores (numeral 5.7): cada campaña tiene un enlace público donde el personal confirma de recibido. */
+export const disseminations = pgTable("disseminations", {
+  id: id(),
+  workplaceId: text("workplace_id").notNull().references(() => workplaces.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  kind: text("kind").notNull(), // POLITICA | RESULTADOS | MEDIDAS | OTRO
+  message: text("message").notNull(),
+  token: text("token").notNull(),
+  active: boolean("active").notNull().default(true),
+  createdAt: createdAt(),
+}, (t) => [index("disseminations_wp_idx").on(t.workplaceId), uniqueIndex("disseminations_token_idx").on(t.token)]);
+
+export const disseminationAcks = pgTable("dissemination_acks", {
+  id: id(),
+  disseminationId: text("dissemination_id").notNull().references(() => disseminations.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  area: text("area"),
+  createdAt: createdAt(),
+}, (t) => [index("dissemination_acks_d_idx").on(t.disseminationId)]);
+
 /** Acciones del Programa de intervención (numeral 8.4) derivadas de una evaluación. */
 export const planActions = pgTable("plan_actions", {
   id: id(),
@@ -229,4 +263,12 @@ export const usersRel = relations(users, ({ one }) => ({
 }));
 export const atsRel = relations(atsFollowups, ({ one }) => ({
   response: one(responses, { fields: [atsFollowups.responseId], references: [responses.id] }),
+}));
+
+export const disseminationsRelations = relations(disseminations, ({ one, many }) => ({
+  workplace: one(workplaces, { fields: [disseminations.workplaceId], references: [workplaces.id] }),
+  acks: many(disseminationAcks),
+}));
+export const disseminationAcksRelations = relations(disseminationAcks, ({ one }) => ({
+  dissemination: one(disseminations, { fields: [disseminationAcks.disseminationId], references: [disseminations.id] }),
 }));

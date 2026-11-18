@@ -1,6 +1,6 @@
 import "server-only";
 import { createHash } from "node:crypto";
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { GUIDES, type GuideId } from "@/lib/nom035/guides";
 import { maskConditional, scoreWorker } from "@/lib/nom035/score";
@@ -132,6 +132,14 @@ export async function loadDashboard(evaluationId: string, opts: { folio?: boolea
   const goals = {
     compliance: ev.compliance ?? {}, targets: ev.kpiTargets ?? {}, prevTargets: prevEv?.kpiTargets ?? {},
     reportSaved: !!report?.reportDate || !!report?.conclusions,
+    exams: (await db.select({ n: sql<number>`count(*)::int` }).from(schema.medicalExams).where(eq(schema.medicalExams.workplaceId, ev.workplaceId)))[0]?.n ?? 0,
+    dissemination: await (async () => {
+      const rows = await db.select({ n: sql<number>`count(${schema.disseminationAcks.id})::int` }).from(schema.disseminations)
+        .leftJoin(schema.disseminationAcks, eq(schema.disseminationAcks.disseminationId, schema.disseminations.id))
+        .where(eq(schema.disseminations.workplaceId, ev.workplaceId)).groupBy(schema.disseminations.id);
+      const hc = ev.headcount ?? ev.workplace.headcount;
+      return rows.length && hc ? Math.min(1, Math.max(...rows.map((r) => r.n)) / hc) : null;
+    })(),
   };
 
   return {

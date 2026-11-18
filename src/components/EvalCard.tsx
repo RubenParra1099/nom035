@@ -32,7 +32,7 @@ export default function EvalCard({ ev, canSeeConfidential }: { ev: EvalCardData;
     { k: "tablero", title: "Tablero e indicadores", desc: "Resultados, KPIs, filtros y ficha por reactivo", href: `${base}/indicadores` },
     { k: "informe", title: "Informe PDF", desc: "Documento de resultados listo para entregar", href: `${base}/informe` },
     { k: "programa", title: "Programa de intervención", desc: "Acciones, responsables, fechas y cronograma", href: `${base}/programa` },
-    { k: "gestion", title: "Quejas y capacitación", desc: "Buzón, capacitaciones y plantilla por área", href: `/admin/centros/${ev.workplaceId}?ev=${ev.id}` },
+    { k: "gestion", title: "Gestión preventiva", desc: "Plantilla, quejas, capacitación, exámenes y difusión", href: `/admin/centros/${ev.workplaceId}?ev=${ev.id}` },
     ...(canSeeConfidential ? [{ k: "guia1" as const, title: "Seguimiento Guía I", desc: ev.atsCases ? `${ev.atsCases} ${ev.atsCases === 1 ? "caso requiere" : "casos requieren"} valoración clínica` : "Casos de acontecimientos traumáticos", href: `${base}/confidencial` }] : []),
   ];
   const pct = ev.target ? Math.min(100, Math.round((ev.responses / ev.target) * 100)) : null;

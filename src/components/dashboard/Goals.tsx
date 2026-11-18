@@ -6,13 +6,14 @@ import { saveComplianceMark, saveKpiTargets } from "@/app/admin/gestion-actions"
 import { GUIDES, LEVELS, LEVEL_LABEL, levelFor, type GuideId, type Level } from "@/lib/nom035/guides";
 import { aggregate, scoreWorker, type ScoreResult } from "@/lib/nom035/score";
 import { computeKpis, type InterventionData, type Kpi, type KpiRec } from "@/lib/nom035/kpis";
-import { complianceChecks, STATUS_LABEL, type CheckResult, type CheckStatus, type ManualMark } from "@/lib/nom035/compliance";
+import { complianceChecks, fineExposure, UMA, STATUS_LABEL, type CheckResult, type CheckStatus, type ManualMark } from "@/lib/nom035/compliance";
 import { POLICIES, kpiTarget } from "@/lib/nom035/policies";
 import { meanChange } from "@/lib/nom035/stats";
 import { LEVEL_HEX, LevelStack } from "./charts";
 
 export type GoalsData = {
   compliance: Record<string, ManualMark>; targets: Record<string, number>; prevTargets: Record<string, number>; reportSaved: boolean;
+  exams?: number; dissemination?: number | null;
 };
 type Prev = { id: string; name: string; records: KpiRec[] };
 type Props = {
@@ -74,11 +75,15 @@ function Compliance({ ev, records, scores, intervention, goals, canEdit, filtere
     guide: ev.guide, includeGuideI: ev.includeGuideI, headcount: ev.headcount, n: records.length, finalLevel: agg?.final.level ?? null,
     atsRequired, atsCanalized: Math.min(atsCanalized, atsRequired), actions: intervention.actions, complaints: intervention.complaints.length,
     trainings: intervention.trainings.length, reportSaved: goals.reportSaved, manual: marks,
+    exams: goals.exams, dissemination: goals.dissemination,
   });
+  const fines = fineExposure(checks);
+  const money = (v: number) => `$${Math.round(v).toLocaleString("es-MX")}`;
   const color = index === null ? "#6B7280" : index >= 85 ? "#16A34A" : index >= 60 ? "#D97706" : "#DC2626";
   const verdict = index === null ? "Sin datos" : index >= 85 ? "Cumplimiento alto" : index >= 60 ? "Cumplimiento parcial" : "Cumplimiento bajo";
   return (
     <div className="grid gap-4 lg:grid-cols-[300px_minmax(0,1fr)]">
+      <div className="space-y-4">
       <section className="card flex flex-col items-center p-5 text-center">
         <h2 className="flex items-center gap-1.5 self-start text-base font-semibold text-ink">Índice de cumplimiento<Help id="g.indice" /></h2>
         <svg viewBox="0 0 160 160" className="mt-3 w-44">
@@ -96,6 +101,16 @@ function Compliance({ ev, records, scores, intervention, goals, canEdit, filtere
         </div>
         <p className="mt-4 text-left text-xs text-gray-500">Cumplido vale 1 y parcial 0.5; lo que no aplica no cuenta. Se calcula con todo el centro de trabajo{filtered ? " (no le afectan los filtros)" : ""}.</p>
       </section>
+      <section className="card p-5">
+        <h2 className="flex items-center gap-1.5 text-base font-semibold text-ink">Exposición a multas<Help id="g.multas" /></h2>
+        {fines.pending.length === 0 ? <p className="mt-2 text-sm text-green-700 dark:text-green-400">Sin obligaciones pendientes: no hay exposición estimada.</p> : <>
+          <div className="mt-2 text-2xl font-bold tabular-nums text-red-600">{money(fines.min)}<span className="text-base font-semibold text-gray-400"> a </span>{money(fines.max)}</div>
+          <p className="text-xs text-gray-500">{fines.pending.length} {fines.pending.length === 1 ? "obligación pendiente o parcial" : "obligaciones pendientes o parciales"} × 250 a 5,000 UMA (${UMA.value} en {UMA.year}).</p>
+          <ul className="mt-3 space-y-1 text-sm">{fines.pending.map((c) => <li key={c.id} className="flex gap-2"><span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${c.status === "no" ? "bg-red-500" : "bg-amber-500"}`} /><span className="text-gray-700 dark:text-gray-300">{c.title} <span className="text-xs text-gray-400">({c.numeral})</span></span></li>)}</ul>
+          <p className="mt-3 text-xs text-gray-500">LFT art. 994 fr. V. Se multa cada infracción por separado; puede multiplicarse por trabajador afectado y duplicarse si reincide (art. 992). Estimación de referencia, no asesoría legal.</p>
+        </>}
+      </section>
+      </div>
       <section className="card divide-y divide-line p-0">
         {checks.map((c) => <CheckRow key={c.id} c={c} evaluationId={ev.id} canEdit={canEdit} onSaved={(m) => setMarks((x) => ({ ...x, [c.id]: m }))} />)}
       </section>

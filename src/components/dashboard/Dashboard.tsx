@@ -933,7 +933,7 @@ function Priority({ fRecs, fScores, areaHeadcount, headcount, total, minGroup, o
           );
         })}
       </div>
-      {rows.some((r) => !r.exact) && <p className="mt-2 text-xs text-gray-500">* Plantilla estimada con la proporción de respuestas. Captura la plantilla por área en “Quejas y capacitación” para un cálculo exacto.</p>}
+      {rows.some((r) => !r.exact) && <p className="mt-2 text-xs text-gray-500">* Plantilla estimada con la proporción de respuestas. Captura la plantilla por área en “Gestión preventiva” para un cálculo exacto.</p>}
     </Panel>
   );
 }
@@ -942,7 +942,7 @@ function Priority({ fRecs, fScores, areaHeadcount, headcount, total, minGroup, o
 function Participation({ records, scores, guide, areaHeadcount, minGroup }: { records: Rec[]; scores: ScoreResult[]; guide: GuideId; areaHeadcount: Record<string, number>; minGroup: number }) {
   const areas = Object.keys(areaHeadcount);
   if (!areas.length) return (
-    <div className="card mb-4 p-4 text-sm text-gray-600">Captura la <b>plantilla por área</b> en “Quejas y capacitación” para ver la participación, el margen de error y la representatividad de cada área.</div>
+    <div className="card mb-4 p-4 text-sm text-gray-600">Captura la <b>plantilla por área</b> en “Gestión preventiva” para ver la participación, el margen de error y la representatividad de cada área.</div>
   );
   const rows = areas.map((a) => {
     const idx = records.map((r, i) => (r.d.departamento === a ? i : -1)).filter((i) => i >= 0);

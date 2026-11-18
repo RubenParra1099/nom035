@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db, schema } from "@/db";
 import { audit, requireUser } from "@/lib/auth";
+import { createToken } from "@/db/id";
 
 const dateStr = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida");
 const opt = (v: FormDataEntryValue | null) => (v === null || String(v).trim() === "" ? undefined : String(v).trim());
@@ -185,4 +186,53 @@ export async function saveKpiTargets(input: { evaluationId: string; targets: Rec
   await db.update(schema.evaluations).set({ kpiTargets }).where(eq(schema.evaluations.id, d.evaluationId));
   await audit(s, "update-kpi-targets", "evaluation", d.evaluationId);
   revalidatePath(`/admin/evaluaciones/${d.evaluationId}/indicadores`);
+}
+
+/* ---------- Exámenes médicos y evaluaciones psicológicas (5.6) ---------- */
+export async function addExam(form: FormData) {
+  const s = await requireUser(["SUPERADMIN", "CONSULTOR"]);
+  const d = z.object({
+    workplaceId: z.string(), examDate: dateStr, kind: z.enum(["MEDICO", "PSICOLOGICO"]),
+    reason: z.enum(["GUIA_I", "VIOLENCIA", "RIESGO_ALTO", "SINTOMAS", "OTRO"]), result: z.enum(["APTO", "SEGUIMIENTO", "CANALIZADO"]),
+    folio: z.string().max(60).optional(), area: z.string().max(200).optional(), provider: z.string().max(200).optional(),
+  }).parse({
+    workplaceId: form.get("workplaceId"), examDate: form.get("examDate"), kind: form.get("kind"), reason: form.get("reason"), result: form.get("result"),
+    folio: opt(form.get("folio")), area: opt(form.get("area")), provider: opt(form.get("provider")),
+  });
+  const [x] = await db.insert(schema.medicalExams).values(d).returning();
+  await audit(s, "create", "medical_exam", x.id);
+  revalidatePath(`/admin/centros/${d.workplaceId}`);
+}
+export async function deleteExam(form: FormData) {
+  const s = await requireUser(["SUPERADMIN", "CONSULTOR"]);
+  const [x] = await db.delete(schema.medicalExams).where(eq(schema.medicalExams.id, String(form.get("id")))).returning();
+  await audit(s, "delete", "medical_exam", x?.id);
+  if (x) revalidatePath(`/admin/centros/${x.workplaceId}`);
+}
+
+/* ---------- Difusión con acuse de recibo (5.7) ---------- */
+export async function addDissemination(form: FormData) {
+  const s = await requireUser(["SUPERADMIN", "CONSULTOR"]);
+  const d = z.object({
+    workplaceId: z.string(), title: z.string().trim().min(3).max(200), kind: z.enum(["POLITICA", "RESULTADOS", "MEDIDAS", "OTRO"]),
+    message: z.string().trim().min(10).max(20000),
+  }).parse({ workplaceId: form.get("workplaceId"), title: form.get("title"), kind: form.get("kind"), message: form.get("message") });
+  const [x] = await db.insert(schema.disseminations).values({ ...d, token: createToken() }).returning();
+  await audit(s, "create", "dissemination", x.id);
+  revalidatePath(`/admin/centros/${d.workplaceId}`);
+}
+export async function toggleDissemination(form: FormData) {
+  const s = await requireUser(["SUPERADMIN", "CONSULTOR"]);
+  const id = String(form.get("id"));
+  const cur = await db.query.disseminations.findFirst({ where: eq(schema.disseminations.id, id) });
+  if (!cur) return;
+  await db.update(schema.disseminations).set({ active: !cur.active }).where(eq(schema.disseminations.id, id));
+  await audit(s, cur.active ? "close" : "open", "dissemination", id);
+  revalidatePath(`/admin/centros/${cur.workplaceId}`);
+}
+export async function deleteDissemination(form: FormData) {
+  const s = await requireUser(["SUPERADMIN", "CONSULTOR"]);
+  const [x] = await db.delete(schema.disseminations).where(eq(schema.disseminations.id, String(form.get("id")))).returning();
+  await audit(s, "delete", "dissemination", x?.id);
+  if (x) revalidatePath(`/admin/centros/${x.workplaceId}`);
 }
