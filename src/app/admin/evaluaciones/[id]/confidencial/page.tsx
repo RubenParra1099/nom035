@@ -10,6 +10,7 @@ import { updateAts } from "../../../gestion-actions";
 import { Drawer, Pill, SaveButton } from "@/components/ui/forms";
 import { folioOf } from "@/lib/results";
 import { LEVEL_LABEL, type Level } from "@/lib/nom035/guides";
+import { filterLabel, filterQuery, matches, readFilters } from "./filters";
 
 const ATS_STATUS = {
   IDENTIFICADO: "Identificado", CANALIZADO: "Canalizado", EN_ATENCION: "En atención", ATENDIDO: "Atendido", NO_LOCALIZABLE: "No localizable (anónimo)",
@@ -18,9 +19,12 @@ const days = (a: string, b: string) => Math.round((Date.parse(b) - Date.parse(a)
 
 const ATS_TONE = { IDENTIFICADO: "red", CANALIZADO: "amber", EN_ATENCION: "blue", ATENDIDO: "green", NO_LOCALIZABLE: "gray" } as const;
 
-export default async function ConfidentialPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ estado?: string; centro?: string }> }) {
+export default async function ConfidentialPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ estado?: string; centro?: string; desde?: string; hasta?: string }> }) {
   const { id } = await params;
-  const { estado = "todos", centro = "" } = await searchParams;
+  const sp = await searchParams;
+  const estado = sp.estado ?? "todos";
+  const flt = readFilters(sp);
+  const { centro, desde, hasta } = flt;
   const s = await requireUser(["SUPERADMIN", "CONSULTOR"]);
   const ev = await db.query.evaluations.findFirst({ where: eq(schema.evaluations.id, id), with: { workplace: { with: { company: true } } } });
   if (!ev || !canSeeCompany(s, ev.workplace.companyId)) notFound();
@@ -45,15 +49,15 @@ export default async function ConfidentialPage({ params, searchParams }: { param
     .leftJoin(schema.respondentIdentities, eq(schema.respondentIdentities.responseId, schema.responses.id))
     .where(eq(schema.responses.evaluationId, id))
     .orderBy(asc(schema.respondentIdentities.workCenter), asc(schema.respondentIdentities.area), asc(schema.respondentIdentities.fullName), desc(schema.responses.submittedAt));
-  // Filtro por centro de trabajo (evaluaciones generales): aplica a casos, indicadores, solicitudes y participantes
+  // Filtros por centro de trabajo (evaluaciones generales) y fecha de respuesta: aplican a casos, indicadores, solicitudes y participantes
   const centros = [...new Set(allParticipants.flatMap((x) => x.i ? [x.i.workCenter] : []))].sort((a, b) => a.localeCompare(b, "es"));
-  const inCentro = (i: { workCenter: string } | null) => !centro || i?.workCenter === centro;
-  const rows = allRows.filter((x) => inCentro(x.i));
-  const others = allOthers.filter((x) => inCentro(x.i));
-  const participants = allParticipants.filter((x) => inCentro(x.i));
+  const rows = allRows.filter((x) => matches(flt, x.i, x.r.submittedAt));
+  const others = allOthers.filter((x) => matches(flt, x.i, x.r.submittedAt));
+  const participants = allParticipants.filter((x) => matches(flt, x.i, x.at));
+  const filtered = !!(centro || desde || hasta);
   const path = `/admin/evaluaciones/${id}/confidencial`;
-  const qs = (o: { estado?: string; centro?: string }) => {
-    const q = new URLSearchParams(Object.entries({ estado, centro, ...o }).filter(([k, v]) => v && !(k === "estado" && v === "todos")));
+  const qs = (o: { estado?: string }) => {
+    const q = new URLSearchParams(Object.entries({ estado, centro, desde, hasta, ...o }).filter(([k, v]) => v && !(k === "estado" && v === "todos")));
     const str = q.toString();
     return str ? `${path}?${str}` : path;
   };
@@ -96,17 +100,22 @@ export default async function ConfidentialPage({ params, searchParams }: { param
             </Link>
           ))}
           <span className="ml-1 flex items-center"><Help id="g1.estados" /></span>
-          {centros.length > 1 && (
-            <form className="ml-auto flex items-center gap-2" action={path}>
-              {estado !== "todos" && <input type="hidden" name="estado" value={estado} />}
+          <form className="ml-auto flex flex-wrap items-center gap-2" action={path}>
+            {estado !== "todos" && <input type="hidden" name="estado" value={estado} />}
+            {centros.length > 1 && <>
               <label htmlFor="centro" className="text-sm text-gray-500">Centro de trabajo</label>
               <select id="centro" name="centro" defaultValue={centro} className="input w-auto max-w-xs py-1 text-sm">
                 <option value="">Todos los centros</option>
                 {centros.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
-              <button className="btn-secondary py-1 text-sm">Filtrar</button>
-            </form>
-          )}
+            </>}
+            <label htmlFor="desde" className="text-sm text-gray-500">Respondió del</label>
+            <input type="date" id="desde" name="desde" defaultValue={desde} max={hasta || undefined} className="input w-auto py-1 text-sm" />
+            <label htmlFor="hasta" className="text-sm text-gray-500">al</label>
+            <input type="date" id="hasta" name="hasta" defaultValue={hasta} min={desde || undefined} className="input w-auto py-1 text-sm" />
+            <button className="btn-secondary py-1 text-sm">Filtrar</button>
+            {filtered && <Link href={estado !== "todos" ? `${path}?estado=${estado}` : path} className="text-sm font-medium text-brand-700 hover:underline">Quitar filtros</Link>}
+          </form>
         </div>
         <table className="mt-3 w-full min-w-[860px]">
           <thead className="border-b border-gray-100"><tr><th className="th">Trabajador</th><th className="th">Área</th><th className="th">Guía I</th><th className="th">Estado</th><th className="th">Tiempo</th><th className="th">Institución y notas</th><th className="th"></th></tr></thead>
@@ -147,7 +156,7 @@ export default async function ConfidentialPage({ params, searchParams }: { param
                 </tr>
               );
             })}
-            {shown.length === 0 && <tr><td className="td text-gray-500" colSpan={7}>{rows.length ? "Ningún caso con este estado." : centro ? "Sin casos en este centro de trabajo." : "Nadie reportó acontecimientos traumáticos severos."}</td></tr>}
+            {shown.length === 0 && <tr><td className="td text-gray-500" colSpan={7}>{rows.length ? "Ningún caso con este estado." : filtered ? "Sin casos con estos filtros." :"Nadie reportó acontecimientos traumáticos severos."}</td></tr>}
           </tbody>
         </table>
       </div>
@@ -177,8 +186,8 @@ export default async function ConfidentialPage({ params, searchParams }: { param
             <span className="ml-2 text-xs font-normal text-gray-500">Abra una respuesta para ver el cuestionario completo (Guía I y reactivos)</span></summary>
           <div className="flex flex-wrap items-center justify-end gap-3 px-4 pb-3">
             <span className="text-xs text-gray-500">Una ficha por hoja; en el diálogo elija “Guardar como PDF” para un solo archivo.</span>
-            <Link href={`${path}/todas${centro ? `?centro=${encodeURIComponent(centro)}` : ""}`} className="btn-secondary py-1 text-sm">
-              Imprimir todas las fichas ({participants.length}){centro ? ` · ${centro}` : ""}
+            <Link href={`${path}/todas${filterQuery(flt)}`} className="btn-secondary py-1 text-sm">
+              Imprimir todas las fichas ({participants.length}){filtered ? ` · ${filterLabel(flt)}` : ""}
             </Link>
           </div>
           <table className="w-full min-w-[900px]">
