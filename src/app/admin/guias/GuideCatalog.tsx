@@ -1,6 +1,7 @@
 "use client";
 import Help from "@/components/ui/Help";
 import { LogoMark } from "@/components/Logo";
+import { useCanDownload } from "@/components/Downloads";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import { ANSWERS, G2_TO_G3, GUIDES, itemsOfDomain, type GuideId } from "@/lib/nom035/guides";
@@ -34,6 +35,7 @@ const G1_RULE = ["Si todas las respuestas son No, el cuestionario termina aquí.
 const FILTER_Q = { clientes: "En mi trabajo debo brindar servicio a clientes o usuarios", jefe: "Soy jefe de otros trabajadores" } as const;
 
 export default function GuideCatalog() {
+  const downloads = useCanDownload();
   const [tab, setTab] = useState<Tab>("III");
   const [mode, setMode] = useState<Mode>("trabajador");
   const [q, setQ] = useState("");
@@ -111,8 +113,8 @@ export default function GuideCatalog() {
             </dl>
           </div>
           <div className="flex flex-col gap-2 md:items-end">
-            {gid && <button className="btn-secondary w-full md:w-auto" onClick={downloadTemplate}>Descargar plantilla de Excel</button>}
-            <button className="btn-secondary w-full md:w-auto" onClick={() => { setMode("impresion"); setTimeout(() => window.print(), 300); }}>Imprimir formato en papel</button>
+            {downloads && gid && <button className="btn-secondary w-full md:w-auto" onClick={downloadTemplate}>Descargar plantilla de Excel</button>}
+            {downloads && <button className="btn-secondary w-full md:w-auto" onClick={() => { setMode("impresion"); setTimeout(() => window.print(), 300); }}>Imprimir formato en papel</button>}
             <p className="text-xs text-gray-500 md:text-right">Para aplicarla en línea, cree una evaluación desde la página de la empresa.</p>
           </div>
         </div>
@@ -133,7 +135,7 @@ export default function GuideCatalog() {
             <label className="inline-flex items-center gap-1.5"><input type="checkbox" checked={withIdent} onChange={(e) => setWithIdent(e.target.checked)} />Datos de identificación</label>
             {gid && <label className="inline-flex items-center gap-1.5"><input type="checkbox" checked={withDemo} onChange={(e) => setWithDemo(e.target.checked)} />Datos generales</label>}
             {gid && <label className="inline-flex items-center gap-1.5"><input type="checkbox" checked={withG1} onChange={(e) => setWithG1(e.target.checked)} />Incluir Guía I</label>}
-            <button className="btn-primary" onClick={() => window.print()}>Imprimir / PDF</button>
+            {downloads && <button className="btn-primary" onClick={() => window.print()}>Imprimir / PDF</button>}
           </div>
         )}
       </div>

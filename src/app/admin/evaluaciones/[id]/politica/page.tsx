@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { canEdit, canSeeCompany, requireUser } from "@/lib/auth";
+import { canEdit, canSeeCompany, requireUser, isClient } from "@/lib/auth";
 import { policyContext } from "@/lib/policyContext";
 import { POLICIES } from "@/lib/nom035/policies";
 import { GUIDES, LEVEL_LABEL } from "@/lib/nom035/guides";
@@ -20,7 +20,7 @@ export default async function PolicyPage({ params }: { params: Promise<{ id: str
   return (
     <div className="space-y-4">
       <div className="print:hidden"><EvalHeader ev={{ id: ev.id, name: ev.name, guide: ev.guide, includeGuideI: ev.includeGuideI, workplaceId: ev.workplaceId, workplaceName: ev.workplace, companyId: ev.companyId, companyName: ev.company }}
-        active="tablero" canSeeConfidential={s.role !== "CLIENTE"} title="Política de prevención"
+        active="tablero" canSeeConfidential={!isClient(s)} title="Política de prevención"
         subtitle={`Borrador personalizado (numeral 5.1) con base en ${ev.name} · ${GUIDES[ev.guide].name}`} /></div>
       <PolicyDoc company={ev.company} workplace={ev.workplace} evaluation={ev.name} editable={canEdit(s)}
         result={agg ? { level: LEVEL_LABEL[agg.final.level], mean: agg.final.mean.toFixed(1), hiPct: Math.round(ctx.hiPct), n: ctx.n } : null}

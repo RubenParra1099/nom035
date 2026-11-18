@@ -2,6 +2,7 @@
 import Help from "@/components/ui/Help";
 import { HELP, type HelpId } from "@/lib/help";
 import { LogoMark } from "@/components/Logo";
+import { useCanDownload } from "@/components/Downloads";
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { ANSWERS, GUIDES, LEVEL_LABEL, type GuideId, type Level } from "@/lib/nom035/guides";
@@ -79,6 +80,7 @@ export default function ItemSheet({
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   // Al imprimir, solo la ficha va a la hoja (el tablero de fondo se oculta con body.print-sheet)
+  const downloads = useCanDownload();
   const printSheet = () => {
     const prevTitle = document.title;
     document.title = `Ficha reactivo ${n} - ${context.title}`;
@@ -114,10 +116,10 @@ export default function ItemSheet({
               <h2 className="mt-1 text-lg font-semibold leading-snug text-gray-900">{g.text(n)}</h2>
             </div>
             <div className="no-print flex shrink-0 gap-2">
-              <button className="btn-secondary px-3 py-1.5" onClick={printSheet} title="Imprimir o guardar como PDF">
+              {downloads && <button className="btn-secondary px-3 py-1.5" onClick={printSheet} title="Imprimir o guardar como PDF">
                 <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><path d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v6a1 1 0 0 1-1 1h-2" /><path d="M6 14h12v7H6z" /></svg>
                 PDF
-              </button>
+              </button>}
               <button className="btn-secondary px-3 py-1.5" onClick={onClose} aria-label="Cerrar ficha">✕</button>
             </div>
           </div>

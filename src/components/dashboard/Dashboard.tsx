@@ -9,6 +9,7 @@ import { GUIDES, LEVELS, LEVEL_ACTION, LEVEL_LABEL, itemsOfDomain, type GuideId,
 import { aggregate, sampleSize, scoreWorker, type ScoreResult } from "@/lib/nom035/score";
 import { INTERVENTIONS, GUIA_I_ACTION } from "@/lib/nom035/interventions";
 import ItemSheet from "./ItemSheet";
+import { useCanDownload } from "@/components/Downloads";
 import { AgePyramid, GroupForest, Trend, exportDashboard } from "./insights";
 import { AtsFunnel, CorrelationMatrix, DemandControl, FinalHistogram, ItemPareto, Sparkline, Waterfall } from "./advanced";
 import { meanChange, meanMoe, wilson } from "@/lib/nom035/stats";
@@ -77,6 +78,7 @@ export default function Dashboard(props: Props) {
 }
 
 function DashboardInner({ evaluation: ev, records, previous, intervention, areaHeadcount, dimensions, minGroup, canSeeConfidential, goals }: Props) {
+  const downloads = useCanDownload();
   const g = GUIDES[ev.guide];
   const itemMap = useMemo(() => itemsOfDomain(g), [g]);
   const maxDomain = useMemo(() => Object.fromEntries(Object.entries(g.domains).map(([d, its]) => [d, its.length * 4])), [g]);
@@ -138,7 +140,7 @@ function DashboardInner({ evaluation: ev, records, previous, intervention, areaH
 
   return (
     <div className="space-y-4">
-      <FilterBar onExport={enough ? onExport : undefined} dimensions={dimensions} records={records} filters={filters} match={match} toggle={toggle}
+      <FilterBar onExport={enough && downloads ? onExport : undefined} dimensions={dimensions} records={records} filters={filters} match={match} toggle={toggle}
         clear={(k) => setFilters((f) => (k ? { ...f, [k]: [] } : {}))} n={n} total={records.length}
         previous={previous} compareId={compareId} setCompareId={setCompareId} />
 
@@ -678,6 +680,7 @@ function Perfil({ dimensions, fRecs, filters, toggle }: { dimensions: { key: str
 
 /* ================= Plan de acción ================= */
 function Plan({ ev, g, agg, n, fRecs, maxDomain }: { ev: Props["evaluation"]; g: GuideT; agg: AggT; n: number; fRecs: Rec[]; maxDomain: Record<string, number> }) {
+  const downloads = useCanDownload();
   const doms = agg.domains.map((d) => ({ ...d, idx: riskIndex(d.mean, g.domainCuts[d.name], maxDomain[d.name]), hi: pct(d.distribution.ALTO + d.distribution.MUY_ALTO, n) }))
     .sort((a, b) => b.idx - a.idx);
   const priority = doms.filter((d) => ["MEDIO", "ALTO", "MUY_ALTO"].includes(d.level));
@@ -698,7 +701,7 @@ function Plan({ ev, g, agg, n, fRecs, maxDomain }: { ev: Props["evaluation"]; g:
   return (
     <div className="space-y-4">
       <Panel title="Criterio general para la toma de acciones" subtitle={`Calificación final ${fmt1(agg.final.mean)} · ${LEVEL_LABEL[agg.final.level]}`}
-        right={<button className="btn-primary print:hidden" onClick={exportCsv}>Exportar plan (Excel/CSV)</button>}>
+        right={downloads ? <button className="btn-primary print:hidden" onClick={exportCsv}>Exportar plan (Excel/CSV)</button> : undefined}>
         <div className="flex items-start gap-3"><Badge level={agg.final.level} /><p className="text-sm text-gray-700">{LEVEL_ACTION[agg.final.level]}</p></div>
         {(agg.final.level === "MEDIO" || agg.final.level === "ALTO" || agg.final.level === "MUY_ALTO") && (
           <p className="mt-2 text-xs text-gray-500">El nivel obtenido obliga a elaborar un Programa de intervención (numeral 8.4): áreas y trabajadores sujetos, tipo de acciones, fechas, control de avances, evaluación posterior y responsable.</p>

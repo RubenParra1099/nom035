@@ -3,7 +3,7 @@ import EvalHeader from "@/components/EvalHeader";
 import { notFound } from "next/navigation";
 import { asc, eq } from "drizzle-orm";
 import { db, schema } from "@/db";
-import { canEdit, canSeeCompany, requireUser } from "@/lib/auth";
+import { canEdit, canSeeCompany, requireUser, isClient } from "@/lib/auth";
 import { GUIDES, LEVEL_LABEL, type Level } from "@/lib/nom035/guides";
 import { aggregate, scoreWorker } from "@/lib/nom035/score";
 import { INTERVENTIONS } from "@/lib/nom035/interventions";
@@ -36,7 +36,7 @@ export default async function ProgramPage({ params }: { params: Promise<{ id: st
   return (
     <div className="space-y-6">
       <EvalHeader ev={{ id: ev.id, name: ev.name, guide: ev.guide, includeGuideI: ev.includeGuideI, workplaceId: ev.workplaceId, workplaceName: ev.workplace.name, companyId: ev.workplace.companyId, companyName: ev.workplace.company.name }}
-        active="programa" canSeeConfidential={s.role !== "CLIENTE"} title="Programa de intervención"
+        active="programa" canSeeConfidential={!isClient(s)} title="Programa de intervención"
         subtitle="Numeral 8.4: acciones, responsables, fechas y control de avances. Alimenta los indicadores CPI y EDI." />
 
       <div className="grid gap-4 sm:grid-cols-4">

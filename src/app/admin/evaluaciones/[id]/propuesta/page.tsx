@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { canEdit, canSeeCompany, requireUser } from "@/lib/auth";
+import { canEdit, canSeeCompany, requireUser, isClient } from "@/lib/auth";
 import { policyContext } from "@/lib/policyContext";
 import { GUIDES, LEVELS, LEVEL_LABEL, levelFor } from "@/lib/nom035/guides";
 import { MIN_GROUP } from "@/lib/results";
@@ -47,7 +47,7 @@ export default async function ProposalPage({ params }: { params: Promise<{ id: s
   return (
     <div className="space-y-4">
       <div className="print:hidden"><EvalHeader ev={{ id: ev.id, name: ev.name, guide: ev.guide, includeGuideI: ev.includeGuideI, workplaceId: ev.workplaceId, workplaceName: ev.workplace, companyId: ev.companyId, companyName: ev.company }}
-        active="tablero" canSeeConfidential={s.role !== "CLIENTE"} title="Propuesta de mejora" subtitle={`Documento ejecutivo para la dirección con base en ${ev.name}`} /></div>
+        active="tablero" canSeeConfidential={!isClient(s)} title="Propuesta de mejora" subtitle={`Documento ejecutivo para la dirección con base en ${ev.name}`} /></div>
       {data ? <ProposalDoc data={data} consultant={s.name} editable={canEdit(s)} />
         : <div className="card p-10 text-center text-gray-600">Se necesitan al menos {MIN_GROUP} respuestas para generar la propuesta.</div>}
     </div>

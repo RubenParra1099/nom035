@@ -5,6 +5,7 @@ import { Drawer, SaveButton, toast } from "@/components/ui/forms";
 import { addPolicyActions } from "@/app/admin/gestion-actions";
 import { LEVEL_LABEL } from "@/lib/nom035/guides";
 import type { Recommendation } from "@/lib/nom035/policies";
+import { useCanDownload } from "@/components/Downloads";
 
 const TIER_STYLE: Record<Recommendation["tier"], string> = {
   "Obligatoria": "bg-brand-600 text-white",
@@ -45,6 +46,7 @@ function AddToProgram({ r, evaluationId }: { r: Recommendation; evaluationId: st
 }
 
 export default function Policies({ recs, evaluationId, canEdit, evaluationName }: { recs: Recommendation[]; evaluationId: string; canEdit: boolean; evaluationName: string }) {
+  const downloads = useCanDownload();
   const [tier, setTier] = useState<string>("");
   const [nivel, setNivel] = useState<number>(0);
   const shown = recs.filter((r) => (!tier || r.tier === tier) && (!nivel || r.policy.level === nivel));
@@ -72,7 +74,7 @@ export default function Policies({ recs, evaluationId, canEdit, evaluationName }
           <div className="flex flex-wrap gap-2 print:hidden">
             <a href={`/admin/evaluaciones/${evaluationId}/propuesta`} className="btn-primary">Propuesta de mejora</a>
             <a href={`/admin/evaluaciones/${evaluationId}/politica`} className="btn-secondary">Generar política de prevención</a>
-            <button type="button" className="btn-secondary" onClick={exportCsv}>Exportar a Excel</button>
+            {downloads && <button type="button" className="btn-secondary" onClick={exportCsv}>Exportar a Excel</button>}
           </div>
         </div>
         <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">

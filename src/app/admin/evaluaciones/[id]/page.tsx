@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import QRCode from "qrcode";
 import { eq, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
-import { canEdit, canSeeCompany, requireUser } from "@/lib/auth";
+import { canEdit, canSeeCompany, requireUser, isClient } from "@/lib/auth";
 import { requiredGuide, sampleSize } from "@/lib/nom035/score";
 import { deleteEvaluation, deleteImportedResponses, setEvaluationStatus, updateEvaluation } from "../../actions";
 import Importer from "./Importer";
@@ -44,7 +44,7 @@ export default async function EvaluationPage({ params }: { params: Promise<{ id:
   return (
     <div className="space-y-6">
       <EvalHeader ev={{ id: ev.id, name: ev.name, guide: ev.guide, includeGuideI: ev.includeGuideI, workplaceId: ev.workplaceId, workplaceName: ev.workplace.name, companyId: ev.workplace.companyId, companyName: ev.workplace.company.name }}
-        active="evaluacion" canSeeConfidential={s.role !== "CLIENTE"} subtitle="Captura de respuestas, enlace del cuestionario e importación" />
+        active="evaluacion" canSeeConfidential={!isClient(s)} subtitle="Captura de respuestas, enlace del cuestionario e importación" />
       {rg && rg !== ev.guide && (
         <p className="rounded-lg bg-amber-50 p-2 text-sm text-amber-800">
           Con {N} trabajadores corresponde aplicar la {rg === "GUIA_III" ? "Guía III" : "Guía II"}.

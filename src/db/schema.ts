@@ -2,7 +2,7 @@ import { pgTable, pgEnum, text, integer, boolean, timestamp, jsonb, index, uniqu
 import { relations } from "drizzle-orm";
 import { createId } from "./id";
 
-export const roleEnum = pgEnum("role", ["SUPERADMIN", "CONSULTOR", "CLIENTE"]);
+export const roleEnum = pgEnum("role", ["SUPERADMIN", "CONSULTOR", "CLIENTE", "CLIENTE_PRUEBA"]);
 export const guideEnum = pgEnum("guide", ["GUIA_II", "GUIA_III"]);
 export const statusEnum = pgEnum("evaluation_status", ["BORRADOR", "ABIERTA", "CERRADA"]);
 export const sourceEnum = pgEnum("response_source", ["EN_LINEA", "IMPORTACION"]);

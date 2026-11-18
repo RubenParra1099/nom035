@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db, schema } from "@/db";
 import { createToken } from "@/db/id";
-import { audit, requireUser } from "@/lib/auth";
+import { audit, isClient, requireUser } from "@/lib/auth";
 import { generalTemplate, generalWorkplace } from "@/lib/generalEvaluation";
 
 const lines = (v: FormDataEntryValue | null) =>
@@ -184,15 +184,15 @@ export async function createUser(form: FormData) {
   const s = await requireUser(["SUPERADMIN"]);
   const d = z.object({
     email: z.string().email(), name: z.string().min(2), password: z.string().min(8),
-    role: z.enum(["SUPERADMIN", "CONSULTOR", "CLIENTE"]), companyId: z.string().optional(),
+    role: z.enum(["SUPERADMIN", "CONSULTOR", "CLIENTE", "CLIENTE_PRUEBA"]), companyId: z.string().optional(),
   }).parse({
     email: String(form.get("email")).toLowerCase().trim(), name: form.get("name"), password: form.get("password"),
     role: form.get("role"), companyId: form.get("companyId") || undefined,
   });
-  if (d.role === "CLIENTE" && !d.companyId) redirect(`/admin/usuarios?error=${encodeURIComponent("Un usuario Cliente debe tener empresa.")}`);
+  if (isClient(d) && !d.companyId) redirect(`/admin/usuarios?error=${encodeURIComponent("Un usuario Cliente debe tener empresa.")}`);
   if (await db.query.users.findFirst({ where: eq(schema.users.email, d.email) })) redirect(`/admin/usuarios?error=${encodeURIComponent("Ese correo ya está registrado.")}`);
   const [u] = await db.insert(schema.users).values({
-    email: d.email, name: d.name, role: d.role, companyId: d.role === "CLIENTE" ? d.companyId : null,
+    email: d.email, name: d.name, role: d.role, companyId: isClient(d) ? d.companyId : null,
     passwordHash: await bcrypt.hash(d.password, 10),
   }).returning();
   await audit(s, "create", "user", u.id);
@@ -206,19 +206,19 @@ export async function updateUser(form: FormData) {
   const back = (msg: string) => redirect(`/admin/usuarios?edit=${id}&error=${encodeURIComponent(msg)}`);
   const parsed = z.object({
     email: z.string().email(), name: z.string().trim().min(2), password: z.string().min(8).optional(),
-    role: z.enum(["SUPERADMIN", "CONSULTOR", "CLIENTE"]), companyId: z.string().optional(),
+    role: z.enum(["SUPERADMIN", "CONSULTOR", "CLIENTE", "CLIENTE_PRUEBA"]), companyId: z.string().optional(),
   }).safeParse({
     email: String(form.get("email") ?? "").toLowerCase().trim(), name: form.get("name"), password: form.get("password") || undefined,
     role: form.get("role"), companyId: form.get("companyId") || undefined,
   });
   if (!parsed.success) back("Revisa los datos: correo válido, nombre de al menos 2 letras y contraseña de al menos 8 caracteres.");
   const d = parsed.data!;
-  if (d.role === "CLIENTE" && !d.companyId) back("Un usuario Cliente debe tener empresa.");
+  if (isClient(d) && !d.companyId) back("Un usuario Cliente debe tener empresa.");
   if (id === s.uid && d.role !== "SUPERADMIN") back("No puedes quitarte a ti mismo el rol de Administrador.");
   const dup = await db.query.users.findFirst({ where: eq(schema.users.email, d.email) });
   if (dup && dup.id !== id) back("Ese correo ya está registrado en otro usuario.");
   await db.update(schema.users).set({
-    name: d.name, email: d.email, role: d.role, companyId: d.role === "CLIENTE" ? d.companyId : null,
+    name: d.name, email: d.email, role: d.role, companyId: isClient(d) ? d.companyId : null,
     ...(d.password ? { passwordHash: await bcrypt.hash(d.password, 10) } : {}),
   }).where(eq(schema.users.id, id));
   await audit(s, d.password ? "update+password" : "update", "user", id);

@@ -2,7 +2,7 @@ import Link from "next/link";
 import Help from "@/components/ui/Help";
 import { eq, inArray, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
-import { canEdit, canSeeCompany, requireUser } from "@/lib/auth";
+import { canEdit, canSeeCompany, requireUser, isClient } from "@/lib/auth";
 import { getAlerts } from "@/lib/alerts";
 import { GUIDES, levelFor } from "@/lib/nom035/guides";
 import { sampleSize } from "@/lib/nom035/score";
@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 export default async function CompaniesPage() {
   const s = await requireUser();
   const companies = (await db.query.companies.findMany({
-    where: s.role === "CLIENTE" ? eq(schema.companies.id, s.companyId ?? "") : undefined,
+    where: isClient(s) ? eq(schema.companies.id, s.companyId ?? "") : undefined,
     with: { workplaces: { with: { evaluations: true } } },
   })).filter((c) => canSeeCompany(s, c.id));
   const evIds = companies.flatMap((c) => c.workplaces.flatMap((w) => w.evaluations.map((e) => e.id)));
@@ -80,7 +80,7 @@ export default async function CompaniesPage() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-semibold text-ink">{s.role === "CLIENTE" ? "Mi empresa" : "Cartera de clientes"}<Help id="cartera" /></h1>
+          <h1 className="flex items-center gap-2 text-2xl font-semibold text-ink">{isClient(s) ? "Mi empresa" : "Cartera de clientes"}<Help id="cartera" /></h1>
           <p className="text-sm text-gray-500">Resultado más reciente, avance de la captura, casos de Guía I y alertas de cada empresa.</p>
         </div>
         {canEdit(s) && <Link href="/admin/empresas/nueva" className="btn-primary">+ Nuevo cliente</Link>}

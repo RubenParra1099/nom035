@@ -2,6 +2,7 @@
 import { useRef, useState } from "react";
 import Help from "@/components/ui/Help";
 import { LogoMark } from "@/components/Logo";
+import { useCanDownload } from "@/components/Downloads";
 
 export type ProposalData = {
   company: string; workplace: string; evaluation: string; guide: string; headcount: number; n: number;
@@ -26,6 +27,7 @@ export default function ProposalDoc({ data: d, consultant, editable }: { data: P
   const [sel, setSel] = useState<string[]>(d.recs.filter((r) => r.tier !== "Preventiva").map((r) => r.id));
   const [f, setF] = useState({ consultor: consultant, cargo: "Consultor(a) NOM-035", fecha: today(), dirigido: "", inversion: "", notas: "" });
   const doc = useRef<HTMLDivElement>(null);
+  const downloads = useCanDownload();
   const chosen = d.recs.filter((r) => sel.includes(r.id));
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setF({ ...f, [k]: e.target.value });
   const change = d.final.prev != null ? d.final.mean - d.final.prev : null;
@@ -65,10 +67,10 @@ export default function ProposalDoc({ data: d, consultant, editable }: { data: P
             ))}
           </div>
         </section>
-        <div className="flex gap-2">
+        {downloads && <div className="flex gap-2">
           <button type="button" className="btn-primary flex-1" onClick={downloadWord}>Descargar Word</button>
           <button type="button" className="btn-secondary flex-1" onClick={() => window.print()}>Imprimir / PDF</button>
-        </div>
+        </div>}
       </aside>
 
       <article className="report-paper mx-auto w-full max-w-[216mm] rounded-sm bg-white px-[15mm] py-[15mm] text-[13px] leading-relaxed text-gray-900 shadow-lg print:max-w-none print:p-0 print:shadow-none">

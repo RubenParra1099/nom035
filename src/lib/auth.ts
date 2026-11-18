@@ -11,7 +11,7 @@ export const DEMO_COOKIE = "nom035_demo";
 const key = () => new TextEncoder().encode(process.env.AUTH_SECRET || "missing-secret");
 
 export type Session = {
-  uid: string; role: "SUPERADMIN" | "CONSULTOR" | "CLIENTE"; companyId: string | null; name: string;
+  uid: string; role: "SUPERADMIN" | "CONSULTOR" | "CLIENTE" | "CLIENTE_PRUEBA"; companyId: string | null; name: string;
   /** Calculados en cada petición por requireUser (no viajan en el token). */
   demoAccess?: boolean; demoView?: boolean; hiddenCompanies?: string[];
 };
@@ -46,12 +46,16 @@ export async function requireUser(roles?: Session["role"][]) {
   const hiddenCompanies = all.filter((c) => c.demo !== demoView).map((c) => c.id);
   return { ...s, role: u.role, companyId: u.companyId, demoAccess: u.demoAccess, demoView, hiddenCompanies } satisfies Session;
 }
+/** Usuarios de la empresa cliente (de solo lectura): Cliente y Cliente de prueba. */
+export const isClient = (s: Pick<Session, "role">) => s.role === "CLIENTE" || s.role === "CLIENTE_PRUEBA";
 /** CLIENTE solo puede ver su empresa; nadie ve las empresas ocultas por el modo demo. */
 export function canSeeCompany(s: Session, companyId: string) {
   if (s.hiddenCompanies?.includes(companyId)) return false;
-  return s.role !== "CLIENTE" || s.companyId === companyId;
+  return !isClient(s) || s.companyId === companyId;
 }
-export const canEdit = (s: Session) => s.role !== "CLIENTE";
+export const canEdit = (s: Session) => !isClient(s);
+/** El Cliente de prueba solo consulta en pantalla: sin imprimir, PDF ni descargas de Excel, Word o CSV. */
+export const canDownload = (s: Pick<Session, "role">) => s.role !== "CLIENTE_PRUEBA";
 export async function audit(s: Session | null, action: string, entity: string, entityId?: string) {
   await db.insert(schema.auditLogs).values({ userId: s?.uid ?? null, action, entity, entityId });
 }

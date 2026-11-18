@@ -4,7 +4,7 @@ import { Logo } from "@/components/Logo";
 import { notFound } from "next/navigation";
 import { asc, eq, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
-import { canEdit, canSeeCompany, requireUser } from "@/lib/auth";
+import { canEdit, canSeeCompany, requireUser, isClient } from "@/lib/auth";
 import { MIN_GROUP, loadDashboard } from "@/lib/results";
 import { GUIDES, LEVEL_ACTION, LEVEL_LABEL, LEVELS, type Level } from "@/lib/nom035/guides";
 import { aggregate, sampleSize, scoreWorker, type ScoreResult } from "@/lib/nom035/score";
@@ -109,7 +109,7 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
     <div className="space-y-4">
       <div className="space-y-4 print:hidden">
         <EvalHeader ev={{ id: ev.id, name: ev.name, guide: ev.guide, includeGuideI: ev.includeGuideI, workplaceId: ev.workplaceId, workplaceName: ev.workplace, companyId: ev.companyId, companyName: ev.company }}
-          active="informe" canSeeConfidential={s.role !== "CLIENTE"} title="Informe de resultados"
+          active="informe" canSeeConfidential={!isClient(s)} title="Informe de resultados"
           subtitle="Documento con el contenido que pide la NOM-035 para el informe de la identificación y análisis. Usa “Imprimir / PDF” y elige “Guardar como PDF”." right={<PrintButton />} />
         {edit && (
           <details className="card p-4" open={!report}>

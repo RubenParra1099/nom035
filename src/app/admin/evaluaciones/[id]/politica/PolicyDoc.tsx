@@ -2,6 +2,7 @@
 import { useRef, useState } from "react";
 import Help from "@/components/ui/Help";
 import { LogoMark } from "@/components/Logo";
+import { useCanDownload } from "@/components/Downloads";
 
 type Commitment = { id: string; title: string; numeral: string; text: string; tier: string | null };
 const MONTHS = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
@@ -20,6 +21,7 @@ export default function PolicyDoc({ company, workplace, evaluation, result, comm
     difusion: "inducción de personal, tableros de avisos, intranet y correo electrónico",
   });
   const doc = useRef<HTMLDivElement>(null);
+  const downloads = useCanDownload();
   const chosen = list.filter((c) => sel.includes(c.id));
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setF({ ...f, [k]: e.target.value });
 
@@ -56,10 +58,10 @@ export default function PolicyDoc({ company, workplace, evaluation, result, comm
             ))}
           </div>
         </section>
-        <div className="flex gap-2">
+        {downloads && <div className="flex gap-2">
           <button type="button" className="btn-primary flex-1" onClick={downloadWord}>Descargar Word</button>
           <button type="button" className="btn-secondary flex-1" onClick={() => window.print()}>Imprimir / PDF</button>
-        </div>
+        </div>}
       </aside>
 
       <article className="report-paper mx-auto w-full max-w-[216mm] rounded-sm bg-white px-[16mm] py-[16mm] text-[13px] leading-relaxed text-gray-900 shadow-lg print:max-w-none print:p-0 print:shadow-none">

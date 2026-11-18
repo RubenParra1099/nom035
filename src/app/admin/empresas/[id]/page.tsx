@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { eq, inArray, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
-import { canEdit, canSeeCompany, requireUser } from "@/lib/auth";
+import { canEdit, canSeeCompany, requireUser, isClient } from "@/lib/auth";
 import { sampleSize } from "@/lib/nom035/score";
 import ConfirmButton from "@/components/ConfirmButton";
 import CompanyActions, { CompanyForm, DeleteForm, type CompanyInfo } from "@/components/CompanyActions";
@@ -65,7 +65,7 @@ export default async function CompanyPage({ params, searchParams }: {
   const latest = (w: (typeof wps)[number]) => [...w.evaluations].sort((a, b) => +b.createdAt - +a.createdAt)[0];
   const card = (w: (typeof wps)[number], e: (typeof wps)[number]["evaluations"][number]) => {
     const st = statOf(e.id); const enough = (st?.n ?? 0) >= 5; const N = e.headcount ?? w.headcount;
-    return <EvalCard key={e.id} canSeeConfidential={s.role !== "CLIENTE"} ev={{
+    return <EvalCard key={e.id} canSeeConfidential={!isClient(s)} ev={{
       id: e.id, name: e.name, guide: e.guide, includeGuideI: e.includeGuideI, status: e.status, createdAt: e.createdAt, workplaceId: w.id,
       responses: st?.n ?? 0, target: e.guide === "GUIA_III" ? sampleSize(N) : N || null,
       mean: enough ? st!.mean : null, level: enough ? levelFor(st!.mean, GUIDES[e.guide].finalCuts) : null, atsCases: st?.ats ?? 0,

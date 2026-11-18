@@ -6,7 +6,7 @@ import CopyField from "@/components/CopyField";
 import { notFound } from "next/navigation";
 import { desc, eq, inArray } from "drizzle-orm";
 import { db, schema } from "@/db";
-import { canEdit, canSeeCompany, requireUser } from "@/lib/auth";
+import { canEdit, canSeeCompany, requireUser, isClient } from "@/lib/auth";
 import ConfirmButton from "@/components/ConfirmButton";
 import EvalHeader from "@/components/EvalHeader";
 import { Drawer, Pill, SaveButton } from "@/components/ui/forms";
@@ -69,7 +69,7 @@ export default async function WorkplacePage({ params, searchParams }: { params: 
     <div className="space-y-6">
       {ctx ? (
         <EvalHeader ev={{ id: ctx.id, name: ctx.name, guide: ctx.guide, includeGuideI: ctx.includeGuideI, workplaceId: wp.id, workplaceName: wp.name, companyId: wp.companyId, companyName: wp.company.name }}
-          active="gestion" canSeeConfidential={s.role !== "CLIENTE"} title={`Gestión preventiva · ${wp.name}`} subtitle={intro} />
+          active="gestion" canSeeConfidential={!isClient(s)} title={`Gestión preventiva · ${wp.name}`} subtitle={intro} />
       ) : (
         <div className="space-y-1">
           <nav aria-label="Ruta" className="flex flex-wrap items-center gap-1.5 text-sm text-gray-500">

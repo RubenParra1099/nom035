@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { useCanDownload } from "@/components/Downloads";
 
 /** Datos de la hoja con QR de una evaluación (sin acceso a la base: sirve también para la vista previa). */
 export type QrSheetData = {
@@ -38,6 +39,7 @@ function texts(d: QrSheetData) {
 }
 
 export default function QrSheet({ data }: { data: QrSheetData }) {
+  const downloads = useCanDownload();
   const t = texts(data);
   const [busy, setBusy] = useState(false);
   const file = `QR ${data.company} ${data.evaluation}`.replace(/[\\/:*?"<>|]+/g, " ").trim();
@@ -73,10 +75,10 @@ export default function QrSheet({ data }: { data: QrSheetData }) {
             box-shadow: none !important; border: 0 !important; border-radius: 0 !important; padding: 0 !important; break-inside: avoid; overflow: hidden; }
         }`}</style>
 
-      <div className="no-print flex flex-wrap gap-2">
+      {downloads && <div className="no-print flex flex-wrap gap-2">
         <button className="btn-primary" onClick={printPdf}>⬇ Descargar PDF</button>
         <button className="btn-secondary" onClick={downloadPng} disabled={busy}>{busy ? "Generando…" : "⬇ Descargar imagen (PNG)"}</button>
-      </div>
+      </div>}
 
       <div id="qr-sheet" className="mx-auto flex max-w-[816px] flex-col rounded-xl border border-line bg-white p-12 shadow-sm"
         style={{ fontFamily: FONT, color: C.ink, minHeight: 1000 }}>

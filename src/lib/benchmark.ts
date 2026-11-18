@@ -1,7 +1,7 @@
 import "server-only";
 import { eq } from "drizzle-orm";
 import { db, schema } from "@/db";
-import type { Session } from "@/lib/auth";
+import { isClient, type Session } from "@/lib/auth";
 import { C, GUIDES, LEVELS, type GuideId, type Level } from "@/lib/nom035/guides";
 import { aggregate, scoreWorker } from "@/lib/nom035/score";
 import { computeKpis } from "@/lib/nom035/kpis";
@@ -74,6 +74,6 @@ export function quantiles(values: number[]) {
 
 /** Lo que un usuario CLIENTE puede ver: sus centros con nombre y el resto como referencia anónima. */
 export function scopeFor(s: Session, rows: BenchRow[]) {
-  if (s.role !== "CLIENTE") return { rows, own: new Set(rows.map((r) => r.workplaceId)), anonymous: false };
+  if (!isClient(s)) return { rows, own: new Set(rows.map((r) => r.workplaceId)), anonymous: false };
   return { rows, own: new Set(rows.filter((r) => r.companyId === s.companyId).map((r) => r.workplaceId)), anonymous: true };
 }

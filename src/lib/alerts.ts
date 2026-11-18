@@ -1,7 +1,7 @@
 import "server-only";
 import { and, eq, inArray, isNull, lte, ne, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
-import { canSeeCompany, type Session } from "@/lib/auth";
+import { canSeeCompany, type Session, isClient } from "@/lib/auth";
 import { computeKpis } from "@/lib/nom035/kpis";
 import { sampleSize } from "@/lib/nom035/score";
 import { MIN_GROUP } from "@/lib/results";
@@ -55,7 +55,7 @@ export async function getAlerts(s: Session): Promise<Alert[]> {
       for (const evId of [...new Set(ats.map((x) => x.evaluationId))]) {
         const list = ats.filter((x) => x.evaluationId === evId);
         const late = list.filter((x) => x.identifiedAt <= daysAgo(15)).length;
-        const href = s.role === "CLIENTE" ? `/admin/evaluaciones/${evId}` : `/admin/evaluaciones/${evId}/confidencial`;
+        const href = isClient(s) ? `/admin/evaluaciones/${evId}` : `/admin/evaluaciones/${evId}/confidencial`;
         if (late) out.push({ ...base, severity: "CRITICA", kind: "ATS", href, title: `${late} ${late === 1 ? "caso" : "casos"} de Guía I sin canalizar después de 15 días`, detail: `${evName(evId)} · requieren valoración clínica (numeral 5.5)` });
         if (list.length - late) out.push({ ...base, severity: "ALTA", kind: "ATS", href, title: `${list.length - late} ${list.length - late === 1 ? "caso" : "casos"} de Guía I por canalizar`, detail: `${evName(evId)} · identificados hace menos de 15 días` });
       }

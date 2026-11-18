@@ -7,10 +7,10 @@ import { createUser, toggleUser, updateUser } from "../actions";
 
 export const dynamic = "force-dynamic";
 
-const ROLE_LABEL = { SUPERADMIN: "Administrador", CONSULTOR: "Consultor", CLIENTE: "Cliente (solo lectura)" } as const;
+const ROLE_LABEL = { SUPERADMIN: "Administrador", CONSULTOR: "Consultor", CLIENTE: "Cliente (solo lectura)", CLIENTE_PRUEBA: "Cliente de prueba (sin descargas)" } as const;
 const fmt = (d: Date) => d.toLocaleString("es-MX", { timeZone: "America/Mexico_City", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 
-const ROLE_HELP = "Administrador: todo, incluidos usuarios y eliminaciones. Consultor: clientes, evaluaciones, análisis y seguimiento; no administra usuarios. Cliente: solo consulta los resultados agregados de su empresa.";
+const ROLE_HELP = "Administrador: todo, incluidos usuarios y eliminaciones. Consultor: clientes, evaluaciones, análisis y seguimiento; no administra usuarios. Cliente: solo consulta los resultados agregados de su empresa. Cliente de prueba: igual que Cliente, pero sin imprimir ni descargar PDF, Excel, Word o CSV.";
 
 /** Solo administradores: el consultor no ve esta página ni puede dar de alta o editar usuarios. */
 export default async function UsersPage({ searchParams }: { searchParams: Promise<{ edit?: string; error?: string; ok?: string }> }) {
@@ -77,11 +77,11 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
             <div><label className="label">Nueva contraseña</label><input name="password" type="password" minLength={8} className="input" placeholder="Dejar vacío para no cambiarla" autoComplete="new-password" /></div>
             <div><label className="label">Rol</label>
               <select name="role" className="input" defaultValue={editing.role} disabled={editing.id === s.uid}>
-                <option value="CONSULTOR">Consultor</option><option value="CLIENTE">Cliente (solo lectura)</option><option value="SUPERADMIN">Administrador</option>
+                <option value="CONSULTOR">Consultor</option><option value="CLIENTE">Cliente (solo lectura)</option><option value="CLIENTE_PRUEBA">Cliente de prueba (sin descargas)</option><option value="SUPERADMIN">Administrador</option>
               </select>
               {editing.id === s.uid && <><input type="hidden" name="role" value="SUPERADMIN" /><p className="mt-1 text-xs text-gray-500">No puedes cambiar tu propio rol.</p></>}
             </div>
-            <div><label className="label">Empresa (solo para Cliente)</label>
+            <div><label className="label">Empresa (solo para Cliente y Cliente de prueba)</label>
               <select name="companyId" className="input" defaultValue={editing.companyId ?? ""}>
                 <option value="">—</option>{companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select></div>
@@ -103,9 +103,9 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
             <div><label className="label">Contraseña inicial</label><input name="password" type="password" minLength={8} className="input" required autoComplete="new-password" /></div>
             <div><label className="label">Rol</label>
               <select name="role" className="input" defaultValue="CONSULTOR">
-                <option value="CONSULTOR">Consultor</option><option value="CLIENTE">Cliente (solo lectura)</option><option value="SUPERADMIN">Administrador</option>
+                <option value="CONSULTOR">Consultor</option><option value="CLIENTE">Cliente (solo lectura)</option><option value="CLIENTE_PRUEBA">Cliente de prueba (sin descargas)</option><option value="SUPERADMIN">Administrador</option>
               </select></div>
-            <div><label className="label">Empresa (solo para Cliente)</label>
+            <div><label className="label">Empresa (solo para Cliente y Cliente de prueba)</label>
               <select name="companyId" className="input" defaultValue="">
                 <option value="">—</option>{companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select></div>
