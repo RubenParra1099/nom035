@@ -57,11 +57,15 @@ const ORDINAL: Record<string, string[]> = {
   tiempoPuesto: ["Menos de 6 meses", "Entre 6 meses y 1 año", "Entre 1 y 4 años", "Entre 5 y 9 años", "Entre 10 y 14 años", "Entre 15 y 19 años", "Entre 20 y 24 años", "25 años o más"],
 };
 ORDINAL.experiencia = ORDINAL.tiempoPuesto;
+/** Filtro por nivel de riesgo de la calificación final del trabajador (no es un dato general: se calcula de sus respuestas). */
+const NIVEL = "nivel";
+ORDINAL[NIVEL] = LEVELS;
+const showVal = (k: string, v: string) => (k === NIVEL ? LEVEL_LABEL[v as Level] ?? v : v);
 const sortVals = (key: string, vals: string[]) =>
   ORDINAL[key] ? [...vals].sort((a, b) => (ORDINAL[key].indexOf(a) + 1 || 99) - (ORDINAL[key].indexOf(b) + 1 || 99)) : [...vals].sort((a, b) => a.localeCompare(b, "es"));
 
-function readUrl(): { f: Filters; tab: TabId; item: number | null } {
-  if (typeof window === "undefined") return { f: {}, tab: "resumen", item: null };
+function readUrl(): { f: Filters; tab: TabId; item: number | null; dom: string } {
+  if (typeof window === "undefined") return { f: {}, tab: "resumen", item: null, dom: "" };
   const q = new URLSearchParams(window.location.search);
   const f: Filters = {};
   for (const part of (q.get("f") ?? "").split(";").filter(Boolean)) {
@@ -70,7 +74,7 @@ function readUrl(): { f: Filters; tab: TabId; item: number | null } {
   }
   const tab = (TABS.find((t) => t.id === q.get("tab"))?.id ?? "resumen") as TabId;
   const item = Number(q.get("item")) || null;
-  return { f, tab, item };
+  return { f, tab, item, dom: q.get("dom") ?? "" };
 }
 
 export default function Dashboard(props: Props) {
@@ -89,17 +93,37 @@ function DashboardInner({ evaluation: ev, records, previous, intervention, areaH
   const [tab, setTab] = useState<TabId>("resumen");
   const [compareId, setCompareId] = useState<string>(previous[0]?.id ?? "");
   const [sheet, setSheet] = useState<number | null>(null);
-  useEffect(() => { const u = readUrl(); setFilters(u.f); setTab(u.tab); setSheet(u.item); }, []);
+  // Categoría o dominio elegido en la pestaña Reactivos (las etiquetas de categoría y dominio llevan ahí)
+  const [dom, setDom] = useState("");
+  useEffect(() => { const u = readUrl(); setFilters(u.f); setTab(u.tab); setSheet(u.item); setDom(u.dom); }, []);
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
     const f = Object.entries(filters).filter(([, v]) => v.length).map(([k, v]) => `${k}:${v.map(encodeURIComponent).join("|")}`).join(";");
     if (f) q.set("f", f); else q.delete("f");
     q.set("tab", tab);
     if (sheet) q.set("item", String(sheet)); else q.delete("item");
+    if (dom && tab === "reactivos") q.set("dom", dom); else q.delete("dom");
     window.history.replaceState(null, "", `${window.location.pathname}?${q.toString()}`);
-  }, [filters, tab, sheet]);
+  }, [filters, tab, sheet, dom]);
 
-  const match = (r: Rec, skip?: string) => Object.entries(filters).every(([k, vs]) => k === skip || !vs.length || vs.includes(r.d[k]));
+  // Nivel de la calificación final de cada respuesta (también de periodos anteriores, calculado al vuelo)
+  const levels = useMemo(() => { const m = new WeakMap<Rec, Level>(); records.forEach((r, i) => m.set(r, scores[i].finalLevel)); return m; }, [records, scores]);
+  const valueOf = (r: Rec, k: string): string => {
+    if (k !== NIVEL) return r.d[k];
+    let l = levels.get(r);
+    if (!l) { l = scoreWorker(ev.guide, Object.fromEntries(r.it.map((v, i) => [i + 1, v]))).finalLevel; levels.set(r, l); }
+    return l;
+  };
+  const facets = useMemo(() => [...dimensions, { key: NIVEL, label: "Nivel de riesgo" }], [dimensions]);
+  const labelOf = (k: string) => facets.find((d) => d.key === k)?.label ?? k;
+
+  // Navegación desde etiquetas: cambia de pestaña y sube a la barra de pestañas
+  const tabsRef = useRef<HTMLDivElement>(null);
+  const go = (t: TabId) => { setTab(t); setTimeout(() => tabsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0); };
+  const goDomain = (name: string) => { setDom(name); go("reactivos"); };
+  const setLevels = (ls: Level[]) => setFilters((f) => ({ ...f, [NIVEL]: ls }));
+
+  const match = (r: Rec, skip?: string) => Object.entries(filters).every(([k, vs]) => k === skip || !vs.length || vs.includes(valueOf(r, k)));
   const idx = useMemo(() => records.map((r, i) => (match(r) ? i : -1)).filter((i) => i >= 0), [records, filters]); // eslint-disable-line react-hooks/exhaustive-deps
   const fRecs = idx.map((i) => records[i]);
   const fScores = idx.map((i) => scores[i]);
@@ -134,17 +158,17 @@ function DashboardInner({ evaluation: ev, records, previous, intervention, areaH
 
   const kpiArgs = () => ({ guide: ev.guide, records: fRecs, minGroup, headcount: ev.headcount, intervention, areaHeadcount, population,
     prevRecords: previous.find((p) => p.id === compareId)?.records.filter((r) => match(r)) });
-  const filterText = Object.entries(filters).filter(([, v]) => v.length).map(([k, v]) => `${dimensions.find((d) => d.key === k)?.label ?? k}: ${v.join(", ")}`).join(" · ");
+  const filterText = Object.entries(filters).filter(([, v]) => v.length).map(([k, v]) => `${labelOf(k)}: ${v.map((x) => showVal(k, x)).join(", ")}`).join(" · ");
   const onExport = () => exportDashboard({ guide: ev.guide, name: ev.name, recs: fRecs, scores: fScores, kpis: computeKpis(kpiArgs()), dimensions, minGroup, filters: filterText });
   const trend = [...previous].reverse().map((p) => ({ name: p.name, recs: p.records.filter((r) => match(r)) })).concat([{ name: ev.name, recs: fRecs }]);
 
   return (
     <div className="space-y-4">
-      <FilterBar onExport={enough && downloads ? onExport : undefined} dimensions={dimensions} records={records} filters={filters} match={match} toggle={toggle}
+      <FilterBar onExport={enough && downloads ? onExport : undefined} dimensions={facets} valueOf={valueOf} records={records} filters={filters} match={match} toggle={toggle}
         clear={(k) => setFilters((f) => (k ? { ...f, [k]: [] } : {}))} n={n} total={records.length}
         previous={previous} compareId={compareId} setCompareId={setCompareId} />
 
-      <div className="flex items-center gap-2 print:hidden">
+      <div ref={tabsRef} className="flex scroll-mt-28 items-center gap-2 print:hidden">
       <nav className="flex min-w-0 flex-1 gap-1 overflow-x-auto rounded-xl bg-gray-100 p-1" role="tablist">
         {TABS.filter((t) => t.id !== "guia1" || ev.includeGuideI || records.some((r) => Object.keys(r.p).length)).map((t) => (
           <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)}
@@ -162,7 +186,7 @@ function DashboardInner({ evaluation: ev, records, previous, intervention, areaH
         <Empty>La selección tiene {n} {n === 1 ? "respuesta" : "respuestas"}. Para proteger la confidencialidad se requieren al menos {minGroup}. Quita algún filtro.</Empty>
       ) : (
         <>
-          {tab === "resumen" && <Resumen {...{ ev, g, agg, n, prev, fRecs, fScores, maxDomain, maxCat, itemMap, setTab, filtered, records, areaHeadcount, minGroup, setOnly, population, onOpen: setSheet, trend }} />}
+          {tab === "resumen" && <Resumen {...{ ev, g, agg, n, prev, fRecs, fScores, maxDomain, maxCat, itemMap, setTab: go, goDomain, setLevels, levelFilter: filters[NIVEL] ?? [], filtered, records, areaHeadcount, minGroup, setOnly, population, onOpen: setSheet, trend }} />}
           {tab === "kpis" && <Kpis kpis={computeKpis({ guide: ev.guide, records: fRecs, minGroup, headcount: ev.headcount, intervention, areaHeadcount, population,
             prevRecords: previous.find((p) => p.id === compareId)?.records.filter((r) => match(r)) })} filtered={filtered} hasPrev={!!compareId}
             history={(() => {
@@ -173,9 +197,9 @@ function DashboardInner({ evaluation: ev, records, previous, intervention, areaH
               return { labels: [...periods.map((p) => p.label), ev.name], byId: Object.fromEntries(series[series.length - 1].map((k) => [k.id, series.map((ks) => ks.find((x) => x.id === k.id)?.value ?? null)])) };
             })()} />}
           {tab === "analisis" && <Analisis {...{ g, agg, prev, fRecs, fScores, dimensions, minGroup }} />}
-          {tab === "dominios" && <Dominios {...{ g, agg, n, prev, maxDomain, maxCat }} />}
-          {tab === "grupos" && <Grupos {...{ ev, g, dimensions, fRecs, fScores, minGroup, setOnly, maxDomain }} />}
-          {tab === "reactivos" && <Reactivos {...{ g, fRecs, itemMap, onOpen: setSheet }} />}
+          {tab === "dominios" && <Dominios {...{ g, agg, n, prev, maxDomain, maxCat, goDomain }} />}
+          {tab === "grupos" && <Grupos {...{ ev, g, dimensions, fRecs, fScores, minGroup, setOnly, maxDomain, goDomain }} />}
+          {tab === "reactivos" && <Reactivos {...{ g, fRecs, itemMap, onOpen: setSheet, dom, setDom }} />}
           {tab === "guia1" && <GuiaI {...{ ev, fRecs, dimensions, minGroup, canSeeConfidential, ats: intervention.ats }} />}
           {tab === "perfil" && <><Participation records={records} scores={scores} guide={ev.guide} areaHeadcount={areaHeadcount} minGroup={minGroup} />
             <Panel title="Pirámide de edad por sexo" subtitle="Cuántos trabajadores hay en cada grupo de edad y cuántos están en riesgo alto"><AgePyramid recs={fRecs} scores={fScores} onPick={toggle} /></Panel>
@@ -194,7 +218,7 @@ function DashboardInner({ evaluation: ev, records, previous, intervention, areaH
               prevRecs={pe?.records.filter((r) => match(r))} prevName={pe?.name}
               rank={{ pos: ranked.findIndex((r) => r.n === sheet) + 1 || ranked.length, of: ranked.length }}
               context={{ title: `${ev.company} · ${ev.workplace} · ${ev.name}`,
-                filters: Object.entries(filters).filter(([, v]) => v.length).map(([k, v]) => `${dimensions.find((d) => d.key === k)?.label ?? k}: ${v.join(", ")}`).join(" · ") }}
+                filters: filterText }}
               onClose={() => setSheet(null)} onFilter={(k, v) => { setOnly(k, v); setSheet(null); }} />;
           })()}
         </>
@@ -204,8 +228,8 @@ function DashboardInner({ evaluation: ev, records, previous, intervention, areaH
 }
 
 /* ================= Barra de filtros ================= */
-function FilterBar({ dimensions, records, filters, match, toggle, clear, n, total, previous, compareId, setCompareId, onExport }: {
-  onExport?: () => void;
+function FilterBar({ dimensions, valueOf, records, filters, match, toggle, clear, n, total, previous, compareId, setCompareId, onExport }: {
+  onExport?: () => void; valueOf: (r: Rec, k: string) => string;
   dimensions: { key: string; label: string }[]; records: Rec[]; filters: Filters; match: (r: Rec, skip?: string) => boolean;
   toggle: (k: string, v: string) => void; clear: (k?: string) => void; n: number; total: number;
   previous: PrevRaw[]; compareId: string; setCompareId: (s: string) => void;
@@ -219,7 +243,7 @@ function FilterBar({ dimensions, records, filters, match, toggle, clear, n, tota
     return () => document.removeEventListener("mousedown", h);
   }, []);
   const chips = Object.entries(filters).flatMap(([k, vs]) => vs.map((v) => ({ k, v })));
-  const usable = dimensions.filter(({ key }) => new Set(records.map((r) => r.d[key])).size > 1);
+  const usable = dimensions.filter(({ key }) => new Set(records.map((r) => valueOf(r, key))).size > 1);
   return (
     <div ref={ref} className="card z-20 space-y-2 p-3 md:sticky md:top-0 print:static">
       <div className="flex flex-wrap items-center gap-2">
@@ -232,8 +256,8 @@ function FilterBar({ dimensions, records, filters, match, toggle, clear, n, tota
         {usable.map(({ key, label }) => {
           // Conteos facetados: respetan los demás filtros
           const counts: Record<string, number> = {};
-          for (const r of records) if (match(r, key)) counts[r.d[key]] = (counts[r.d[key]] ?? 0) + 1;
-          const all = sortVals(key, [...new Set(records.map((r) => r.d[key]))]);
+          for (const r of records) if (match(r, key)) { const v = valueOf(r, key); counts[v] = (counts[v] ?? 0) + 1; }
+          const all = sortVals(key, [...new Set(records.map((r) => valueOf(r, key)))]);
           const sel = filters[key] ?? [];
           return (
             <div key={key} className="relative">
@@ -247,7 +271,7 @@ function FilterBar({ dimensions, records, filters, match, toggle, clear, n, tota
                   {all.map((v) => (
                     <label key={v} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-gray-50">
                       <input type="checkbox" checked={sel.includes(v)} onChange={() => toggle(key, v)} />
-                      <span className="flex-1 truncate">{v}</span>
+                      <span className="flex-1 truncate">{showVal(key, v)}</span>
                       <span className="tabular-nums text-xs text-gray-400">{counts[v] ?? 0}</span>
                     </label>
                   ))}
@@ -275,7 +299,7 @@ function FilterBar({ dimensions, records, filters, match, toggle, clear, n, tota
         <div className="flex flex-wrap items-center gap-1.5">
           {chips.map(({ k, v }) => (
             <button key={k + v} onClick={() => toggle(k, v)} className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-0.5 text-xs text-gray-700 hover:bg-gray-200">
-              <span className="text-gray-500">{dimensions.find((d) => d.key === k)?.label}:</span> {v} <span aria-hidden>×</span>
+              <span className="text-gray-500">{dimensions.find((d) => d.key === k)?.label}:</span> {showVal(k, v)} <span aria-hidden>×</span>
             </button>
           ))}
           <button onClick={() => clear()} className="text-xs font-medium text-brand-700 hover:underline">Quitar todos</button>
@@ -309,22 +333,35 @@ function Delta({ now, before }: { now: number; before?: number }) {
   const up = d > 0.05, down = d < -0.05;
   return <span className={`whitespace-nowrap text-xs font-medium tabular-nums ${up ? "text-red-600" : down ? "text-green-700" : "text-gray-500"}`} title="Contra el periodo de comparación (más puntos = más riesgo)">{up ? "▲" : down ? "▼" : "="} {fmt1(Math.abs(d))}</span>;
 }
-function Kpi({ label, value, sub, tone }: { label: string; value: React.ReactNode; sub?: React.ReactNode; tone?: string }) {
+/** Con onClick o href, la tarjeta lleva a lo que resume (pestaña, filtro o página); `go` es el texto de la acción. */
+function Kpi({ label, value, sub, tone, onClick, href, go }: { label: string; value: React.ReactNode; sub?: React.ReactNode; tone?: string; onClick?: () => void; href?: string; go?: string }) {
+  const body = <>
+    <div className="flex items-start justify-between gap-1 text-xs font-medium text-gray-500">{label}{`k.${label}` in HELP && <Help id={`k.${label}` as HelpId} />}</div>
+    <div className={`mt-1 text-2xl font-bold tabular-nums ${tone ?? "text-gray-900"}`}>{value}</div>
+    {sub && <div className="mt-0.5 text-xs text-gray-500">{sub}</div>}
+    {(onClick || href) && go && <div className="no-print mt-1.5 text-xs font-medium text-brand-700 group-hover:underline">{go} →</div>}
+  </>;
+  if (!onClick && !href) return <div className="card p-4">{body}</div>;
+  // div con role=link (no <button>) porque la etiqueta puede llevar dentro el botón de ayuda
+  const open = () => (href ? window.location.assign(href) : onClick?.());
   return (
-    <div className="card p-4">
-      <div className="flex items-start justify-between gap-1 text-xs font-medium text-gray-500">{label}{`k.${label}` in HELP && <Help id={`k.${label}` as HelpId} />}</div>
-      <div className={`mt-1 text-2xl font-bold tabular-nums ${tone ?? "text-gray-900"}`}>{value}</div>
-      {sub && <div className="mt-0.5 text-xs text-gray-500">{sub}</div>}
-    </div>
+    <div role="link" tabIndex={0} onClick={(e) => { if (!(e.target as HTMLElement).closest("button")) open(); }}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); } }}
+      className="card group cursor-pointer p-4 transition hover:border-brand-600 hover:shadow-md">{body}</div>
   );
+}
+/** Texto que lleva a su detalle (dentro de párrafos y listas). */
+function Go({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
+  return <button type="button" onClick={onClick} className="text-left font-medium text-brand-700 underline decoration-brand-600/30 underline-offset-2 hover:decoration-brand-600">{children}</button>;
 }
 
 type AggT = ReturnType<typeof aggregate>;
 type GuideT = (typeof GUIDES)[GuideId];
 
 /* ================= Resumen ================= */
-function Resumen({ ev, g, agg, n, prev, fRecs, fScores, maxDomain, itemMap, setTab, filtered, records, areaHeadcount, minGroup, setOnly, population, onOpen, trend }: {
+function Resumen({ ev, g, agg, n, prev, fRecs, fScores, maxDomain, itemMap, setTab, goDomain, setLevels, levelFilter, filtered, records, areaHeadcount, minGroup, setOnly, population, onOpen, trend }: {
   trend: { name: string; recs: Rec[] }[];
+  goDomain: (name: string) => void; setLevels: (ls: Level[]) => void; levelFilter: string[];
   ev: Props["evaluation"]; g: GuideT; agg: AggT; n: number; prev?: Prev; fRecs: Rec[]; fScores: ScoreResult[];
   maxDomain: Record<string, number>; maxCat: Record<string, number>; itemMap: Record<number, { domain: string; category: string }>;
   setTab: (t: TabId) => void; filtered: boolean; records: Rec[]; areaHeadcount: Record<string, number>; minGroup: number; onOpen: (n: number) => void;
@@ -337,30 +374,32 @@ function Resumen({ ev, g, agg, n, prev, fRecs, fScores, maxDomain, itemMap, setT
   const items = topItems(g, fRecs, itemMap).slice(0, 8);
   const ats = fRecs.filter((r) => r.g1 === 2).length;
   
-  // Hallazgos automáticos
-  const insights: string[] = [];
-  insights.push(`La calificación final promedio es ${fmt1(agg.final.mean)} (nivel ${LEVEL_LABEL[agg.final.level].toLowerCase()}); ${pct(hi, n)}% de los trabajadores está en nivel alto o muy alto.`);
+  // Hallazgos automáticos: lo que mencionan (nivel, dominio, reactivo, Guía I) lleva a su detalle
+  const insights: React.ReactNode[] = [];
+  insights.push(<>La calificación final promedio es {fmt1(agg.final.mean)} (nivel {LEVEL_LABEL[agg.final.level].toLowerCase()}); {hi ? <Go onClick={() => setLevels(["ALTO", "MUY_ALTO"])}>{pct(hi, n)}% de los trabajadores está en nivel alto o muy alto</Go> : "ningún trabajador está en nivel alto o muy alto"}.</>);
   const topD = domRank.filter((d) => d.level === "ALTO" || d.level === "MUY_ALTO");
-  if (topD.length) insights.push(`Dominios prioritarios: ${topD.map((d) => `${d.name} (${LEVEL_LABEL[d.level].toLowerCase()})`).join(", ")}.`);
-  else insights.push(`Ningún dominio alcanza nivel alto; el de mayor riesgo es ${domRank[0].name} (${LEVEL_LABEL[domRank[0].level].toLowerCase()}).`);
-  if (items[0]) insights.push(`El reactivo con más riesgo es el ${items[0].n}: “${items[0].text}” (${items[0].unfav}% de respuestas desfavorables).`);
+  if (topD.length) insights.push(<>Dominios prioritarios: {topD.map((d, i) => <Fragment key={d.name}>{i > 0 && ", "}<Go onClick={() => goDomain(d.name)}>{d.name}</Go> ({LEVEL_LABEL[d.level].toLowerCase()})</Fragment>)}.</>);
+  else insights.push(<>Ningún dominio alcanza nivel alto; el de mayor riesgo es <Go onClick={() => goDomain(domRank[0].name)}>{domRank[0].name}</Go> ({LEVEL_LABEL[domRank[0].level].toLowerCase()}).</>);
+  if (items[0]) insights.push(<>El reactivo con más riesgo es el <Go onClick={() => onOpen(items[0].n)}>{items[0].n}: “{items[0].text}”</Go> ({items[0].unfav}% de respuestas desfavorables).</>);
   if (prev) {
     const d = agg.final.mean - prev.final;
     insights.push(`Contra “${prev.name}”${filtered ? ` (mismo grupo, n=${prev.n})` : ""}, la calificación final ${Math.abs(d) < 0.05 ? "se mantiene" : d > 0 ? `sube ${fmt1(d)} puntos (más riesgo)` : `baja ${fmt1(-d)} puntos (menos riesgo)`}.`);
   }
-  if (ev.includeGuideI && ats) insights.push(`${ats} ${ats === 1 ? "trabajador requiere" : "trabajadores requieren"} valoración clínica por acontecimientos traumáticos severos (Guía I).`);
+  if (ev.includeGuideI && ats) insights.push(<><Go onClick={() => setTab("guia1")}>{ats} {ats === 1 ? "trabajador requiere" : "trabajadores requieren"} valoración clínica</Go> por acontecimientos traumáticos severos (Guía I).</>);
 
   return (
     <div className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        <Kpi label="Respuestas analizadas" value={n} sub={filtered ? `de ${records.length} en total` : ev.headcount ? `${pct(records.length, ev.headcount)}% de ${ev.headcount} trabajadores` : undefined} />
+        <Kpi label="Respuestas analizadas" value={n} sub={filtered ? `de ${records.length} en total` : ev.headcount ? `${pct(records.length, ev.headcount)}% de ${ev.headcount} trabajadores` : undefined}
+          onClick={() => setTab("perfil")} go="Ver participantes" />
         <Kpi label={ev.guide === "GUIA_III" ? "Avance contra la muestra" : "Avance contra plantilla"} value={`${sample ? Math.min(999, pct(records.length, sample)) : 0}%`}
-          sub={`${records.length} de ${sample} requeridas`} tone={records.length >= sample ? "text-green-700" : "text-amber-600"} />
-        <Kpi label="Nivel alto o muy alto" value={`${pct(hi, n)}%`} sub={`${hi} trabajadores`} tone={pct(hi, n) >= 50 ? "text-red-600" : "text-gray-900"} />
-        <Kpi label="Categoría más crítica" value={<span className="text-base">{catRank[0].name}</span>} sub={<Badge level={catRank[0].level} />} />
+          sub={`${records.length} de ${sample} requeridas`} tone={records.length >= sample ? "text-green-700" : "text-amber-600"} onClick={() => setTab("perfil")} go="Ver participación por área" />
+        <Kpi label="Nivel alto o muy alto" value={`${pct(hi, n)}%`} sub={`${hi} trabajadores`} tone={pct(hi, n) >= 50 ? "text-red-600" : "text-gray-900"}
+          onClick={hi ? () => setLevels(["ALTO", "MUY_ALTO"]) : undefined} go="Filtrar a estos trabajadores" />
+        <Kpi label="Categoría más crítica" value={<span className="text-base">{catRank[0].name}</span>} sub={<Badge level={catRank[0].level} />} onClick={() => goDomain(catRank[0].name)} go="Ver sus reactivos" />
         {ev.includeGuideI
-          ? <Kpi label="Guía I: requieren valoración" value={ats} sub={`${pct(ats, n)}% de la selección`} tone={ats ? "text-red-600" : "text-gray-900"} />
-          : <Kpi label="Dominio más crítico" value={<span className="text-base">{domRank[0].name}</span>} sub={<Badge level={domRank[0].level} />} />}
+          ? <Kpi label="Guía I: requieren valoración" value={ats} sub={`${pct(ats, n)}% de la selección`} tone={ats ? "text-red-600" : "text-gray-900"} onClick={() => setTab("guia1")} go="Ver Guía I" />
+          : <Kpi label="Dominio más crítico" value={<span className="text-base">{domRank[0].name}</span>} sub={<Badge level={domRank[0].level} />} onClick={() => goDomain(domRank[0].name)} go="Ver sus reactivos" />}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
@@ -372,8 +411,9 @@ function Resumen({ ev, g, agg, n, prev, fRecs, fScores, maxDomain, itemMap, setT
             <p className="mt-3 text-xs leading-relaxed text-gray-600">{LEVEL_ACTION[agg.final.level]}</p>
           </div>
         </Panel>
-        <Panel title="Trabajadores por nivel de riesgo" subtitle="Calificación final individual">
-          <LevelDonut dist={agg.final.distribution} total={n} label="Distribución por nivel" />
+        <Panel title="Trabajadores por nivel de riesgo" subtitle="Calificación final individual · clic en un nivel para filtrar el tablero">
+          <LevelDonut dist={agg.final.distribution} total={n} label="Distribución por nivel" active={levelFilter}
+            onPick={(l) => setLevels(levelFilter.length === 1 && levelFilter[0] === l ? [] : [l])} />
         </Panel>
         <Panel title="Hallazgos principales" subtitle="Generados a partir de los datos filtrados">
           <ul className="space-y-2 text-sm text-gray-700">{insights.map((t, i) => <li key={i} className="flex gap-2"><span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-brand-600" />{t}</li>)}</ul>
@@ -387,7 +427,7 @@ function Resumen({ ev, g, agg, n, prev, fRecs, fScores, maxDomain, itemMap, setT
             {agg.categories.map((c) => (
               <div key={c.name}>
                 <div className="mb-0.5 flex items-center justify-between gap-2 text-sm">
-                  <span className="font-medium text-gray-800">{c.name}</span>
+                  <Go onClick={() => goDomain(c.name)}>{c.name}</Go>
                   <span className="flex items-center gap-2"><Delta now={c.mean} before={prev?.categories[c.name]} /><b className="tabular-nums">{fmt1(c.mean)}</b><Badge level={c.level} /></span>
                 </div>
                 <BulletBar value={c.mean} cuts={g.categoryCuts[c.name]} max={0} prev={prev?.categories[c.name]} label={c.name} />
@@ -397,7 +437,7 @@ function Resumen({ ev, g, agg, n, prev, fRecs, fScores, maxDomain, itemMap, setT
         </Panel>
         <Panel title="Perfil de riesgo por dominio" subtitle={`Índice 0–5 (cada anillo es un nivel)${prev ? " · punteado: periodo anterior" : ""}`}>
           <Radar axes={agg.domains.map((d) => ({ label: d.name, value: riskIndex(d.mean, g.domainCuts[d.name], maxDomain[d.name]), raw: `${fmt1(d.mean)} pts`, level: d.level }))}
-            compare={prev ? agg.domains.map((d) => riskIndex(prev.domains[d.name] ?? 0, g.domainCuts[d.name], maxDomain[d.name])) : undefined} />
+            compare={prev ? agg.domains.map((d) => riskIndex(prev.domains[d.name] ?? 0, g.domainCuts[d.name], maxDomain[d.name])) : undefined} onPick={goDomain} />
         </Panel>
       </div>
 
@@ -418,9 +458,9 @@ function Resumen({ ev, g, agg, n, prev, fRecs, fScores, maxDomain, itemMap, setT
 }
 
 /* ================= Categorías y dominios ================= */
-function Dominios({ g, agg, n, prev, maxDomain }: { g: GuideT; agg: AggT; n: number; prev?: Prev; maxDomain: Record<string, number>; maxCat: Record<string, number> }) {
+function Dominios({ g, agg, n, prev, maxDomain, goDomain }: { g: GuideT; agg: AggT; n: number; prev?: Prev; maxDomain: Record<string, number>; maxCat: Record<string, number>; goDomain: (name: string) => void }) {
   return (
-    <Panel title="Semáforo por categoría y dominio" subtitle="Calificación promedio, rangos de la norma y distribución de trabajadores por nivel">
+    <Panel title="Semáforo por categoría y dominio" subtitle="Calificación promedio, rangos de la norma y distribución de trabajadores por nivel · clic en un nombre para ver sus reactivos">
       <div className="overflow-x-auto">
         <table className="w-full min-w-[760px]">
           <thead className="border-b border-gray-200"><tr>
@@ -431,7 +471,7 @@ function Dominios({ g, agg, n, prev, maxDomain }: { g: GuideT; agg: AggT; n: num
             {agg.categories.map((c) => (
               <Fragment key={c.name}>
                 <tr className="border-t border-gray-200 bg-gray-50">
-                  <td className="td font-semibold">{c.name}</td>
+                  <td className="td font-semibold"><Go onClick={() => goDomain(c.name)}>{c.name}</Go></td>
                   <td className="td text-right font-semibold tabular-nums">{fmt1(c.mean)}</td>
                   {prev && <td className="td text-right"><Delta now={c.mean} before={prev.categories[c.name]} /></td>}
                   <td className="td"><Badge level={c.level} /></td>
@@ -441,7 +481,7 @@ function Dominios({ g, agg, n, prev, maxDomain }: { g: GuideT; agg: AggT; n: num
                 </tr>
                 {agg.domains.filter((d) => d.category === c.name).map((d) => (
                   <tr key={d.name} className="border-t border-gray-100">
-                    <td className="td pl-7 text-gray-700">{d.name}<div className="text-[11px] text-gray-400">Reactivos {g.domains[d.name].slice().sort((a, b) => a - b).join(", ")}</div></td>
+                    <td className="td pl-7 text-gray-700"><Go onClick={() => goDomain(d.name)}>{d.name}</Go><div className="text-[11px] text-gray-400">Reactivos {g.domains[d.name].slice().sort((a, b) => a - b).join(", ")}</div></td>
                     <td className="td text-right tabular-nums">{fmt1(d.mean)}</td>
                     {prev && <td className="td text-right"><Delta now={d.mean} before={prev.domains[d.name]} /></td>}
                     <td className="td"><Badge level={d.level} /></td>
@@ -461,9 +501,9 @@ function Dominios({ g, agg, n, prev, maxDomain }: { g: GuideT; agg: AggT; n: num
 }
 
 /* ================= Comparativo por grupos ================= */
-function Grupos({ ev, g, dimensions, fRecs, fScores, minGroup, setOnly, maxDomain }: {
+function Grupos({ ev, g, dimensions, fRecs, fScores, minGroup, setOnly, maxDomain, goDomain }: {
   ev: Props["evaluation"]; g: GuideT; dimensions: { key: string; label: string }[]; fRecs: Rec[]; fScores: ScoreResult[];
-  minGroup: number; setOnly: (k: string, v: string) => void; maxDomain: Record<string, number>;
+  minGroup: number; setOnly: (k: string, v: string) => void; maxDomain: Record<string, number>; goDomain: (name: string) => void;
 }) {
   const usable = dimensions.filter(({ key }) => new Set(fRecs.map((r) => r.d[key])).size > 1);
   const [dim, setDim] = useState(usable[0]?.key ?? "departamento");
@@ -502,7 +542,7 @@ function Grupos({ ev, g, dimensions, fRecs, fScores, minGroup, setOnly, maxDomai
           <table className="w-full border-separate border-spacing-0">
             <thead><tr>
               <th className="th sticky left-0 bg-surface">{label}</th><th className="th text-right">n</th><th className="th text-center">Final</th>
-              {cols.map((c) => <th key={c} className="th min-w-[86px] text-center align-bottom normal-case tracking-normal"><span className="line-clamp-3">{c}</span></th>)}
+              {cols.map((c) => <th key={c} className="th min-w-[86px] text-center align-bottom normal-case tracking-normal"><button type="button" onClick={() => goDomain(c)} title="Ver sus reactivos" className="line-clamp-3 text-brand-700 hover:underline">{c}</button></th>)}
             </tr></thead>
             <tbody>
               {rows.map((r) => (
@@ -565,9 +605,8 @@ function ItemRows({ rows, onOpen }: { rows: ItemRow[]; onOpen?: (n: number) => v
     </div>
   );
 }
-function Reactivos({ g, fRecs, itemMap, onOpen }: { g: GuideT; fRecs: Rec[]; itemMap: Record<number, { domain: string; category: string }>; onOpen: (n: number) => void }) {
+function Reactivos({ g, fRecs, itemMap, onOpen, dom, setDom }: { g: GuideT; fRecs: Rec[]; itemMap: Record<number, { domain: string; category: string }>; onOpen: (n: number) => void; dom: string; setDom: (d: string) => void }) {
   const [q, setQ] = useState("");
-  const [dom, setDom] = useState("");
   const [order, setOrder] = useState<"riesgo" | "numero">("riesgo");
   let rows = topItems(g, fRecs, itemMap);
   if (order === "numero") rows = rows.sort((a, b) => a.n - b.n);
@@ -606,7 +645,8 @@ function GuiaI({ ev, fRecs, dimensions, minGroup, canSeeConfidential, ats }: { e
           <div className="grid gap-4 sm:grid-cols-3">
             <Kpi label="Sin acontecimiento traumático" value={n - ev1} sub={`${pct(n - ev1, n)}%`} />
             <Kpi label="Vivieron un acontecimiento (sin criterios clínicos)" value={ev1 - req} sub={`${pct(ev1 - req, n)}%`} tone="text-amber-600" />
-            <Kpi label="Requieren valoración clínica" value={req} sub={canSeeConfidential ? "Ver “Seguimiento confidencial”" : `${pct(req, n)}%`} tone={req ? "text-red-600" : "text-gray-900"} />
+            <Kpi label="Requieren valoración clínica" value={req} sub={`${pct(req, n)}%`} tone={req ? "text-red-600" : "text-gray-900"}
+              href={canSeeConfidential && req ? `/admin/evaluaciones/${ev.id}/confidencial` : undefined} go="Ir al seguimiento confidencial" />
           </div>
           <Panel title="Guía I por grupo" subtitle={`Porcentaje de trabajadores por resultado · grupos con menos de ${minGroup} se ocultan`}
             right={<select className="input w-52" value={dim} onChange={(e) => setDim(e.target.value)}>{dimensions.map((d) => <option key={d.key} value={d.key}>{d.label}</option>)}</select>}>
@@ -759,26 +799,30 @@ const LIGHT_STYLE: Record<Light, { bg: string; fg: string; label: string }> = {
 const HIGHER_BETTER = new Set(["LR-03", "LR-06", "CC-04", "EO-01", "EI-02", "EI-03", "EI-04", "EI-05", "EI-06", "EI-08", "EI-09", "EI-10"]);
 function Kpis({ kpis, filtered, hasPrev, history }: { kpis: Kpi[]; filtered: boolean; hasPrev: boolean; history?: { labels: string[]; byId: Record<string, (number | null)[]> } }) {
   const [open, setOpen] = useState<string | null>(null);
+  const [light, setLight] = useState<Light | null>(null);
   const counts = (["ROJO", "AMARILLO", "VERDE", "SIN_DATOS"] as Light[]).map((l) => [l, kpis.filter((k) => k.light === l).length] as const);
+  const shown = light ? kpis.filter((k) => k.light === light) : kpis;
   return (
     <div className="space-y-4">
       <div className="card flex flex-wrap items-center gap-4 p-4">
         {counts.map(([l, c]) => (
-          <div key={l} className="flex items-center gap-2">
+          <button key={l} type="button" disabled={!c} onClick={() => setLight(light === l ? null : l)} aria-pressed={light === l} title={c ? (light === l ? "Mostrar todos" : "Mostrar solo estos indicadores") : undefined}
+            className={`flex items-center gap-2 rounded-full py-0.5 pl-0.5 pr-3 transition ${c ? "hover:bg-gray-100" : "opacity-60"} ${light === l ? "bg-brand-50 ring-1 ring-brand-600" : ""}`}>
             <span className="flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold" style={{ background: LIGHT_STYLE[l].bg, color: LIGHT_STYLE[l].fg }}>{c}</span>
             <span className="text-sm text-gray-700">{LIGHT_STYLE[l].label}</span>
-          </div>
+          </button>
         ))}
+        {light && <button type="button" onClick={() => setLight(null)} className="text-xs font-medium text-brand-700 hover:underline">Mostrar todos</button>}
         <p className="text-xs text-gray-500 md:ml-auto">
           Indicadores de encuesta: respetan los filtros{filtered ? " activos" : ""}. Indicadores de centro (capacitación, quejas, ATS, programa): todo el centro de trabajo.
           {!hasPrev && " Selecciona un periodo en “Comparar con” para ΔIGR, TRPA y EDI."}
         </p>
       </div>
-      {([1, 2, 3, 4] as const).map((dim) => (
+      {([1, 2, 3, 4] as const).filter((dim) => shown.some((k) => k.dim === dim)).map((dim) => (
         <section key={dim} className="space-y-2">
           <h2 className="flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wide text-gray-500">{dim} · {DIM_NAMES[dim]}{dim === 1 && <Help id="kpis" />}</h2>
           <div className="grid items-start gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {kpis.filter((k) => k.dim === dim).map((k) => {
+            {shown.filter((k) => k.dim === dim).map((k) => {
               const st = LIGHT_STYLE[k.light];
               const isOpen = open === k.id;
               return (

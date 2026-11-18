@@ -85,7 +85,8 @@ export function Gauge({ value, cuts, max, prev }: { value: number; cuts: Cuts; m
 }
 
 /* ---------- Dona (distribución por nivel) ---------- */
-export function LevelDonut({ dist, total, label }: { dist: Record<Level, number>; total: number; label: string }) {
+/** Con onPick, cada segmento y renglón de la leyenda filtra el tablero a los trabajadores de ese nivel. */
+export function LevelDonut({ dist, total, label, onPick, active = [] }: { dist: Record<Level, number>; total: number; label: string; onPick?: (l: Level) => void; active?: string[] }) {
   const { show, hide } = useTip();
   const R = 62, r = 40, c = 80;
   let a0 = -Math.PI / 2;
@@ -104,18 +105,22 @@ export function LevelDonut({ dist, total, label }: { dist: Record<Level, number>
       <svg viewBox="0 0 160 160" className="h-40 w-40 shrink-0" role="img" aria-label={label}>
         {segs.length === 1 ? <circle cx={c} cy={c} r={(R + r) / 2} fill="none" style={{ stroke: LEVEL_HEX[segs[0].l] }} strokeWidth={R - r} /> :
           segs.map(({ l, d }) => (
-            <path key={l} d={d} style={{ fill: LEVEL_HEX[l] }} onMouseMove={(e) => show(e, <><b>{LEVEL_LABEL[l]}</b>: {dist[l]} trabajadores ({pct(dist[l], total)}%)</>)} onMouseLeave={hide} />
+            <path key={l} d={d} style={{ fill: LEVEL_HEX[l] }} className={onPick ? "cursor-pointer hover:opacity-80" : ""} onClick={() => onPick?.(l)}
+              onMouseMove={(e) => show(e, <><b>{LEVEL_LABEL[l]}</b>: {dist[l]} trabajadores ({pct(dist[l], total)}%){onPick && <><br /><span className="text-gray-500">Clic para filtrar</span></>}</>)} onMouseLeave={hide} />
           ))}
         <text x={c} y={c - 2} textAnchor="middle" fontSize={22} fontWeight={700} style={{ fill: "var(--ink)" }}>{pct(hi, total)}%</text>
         <text x={c} y={c + 14} textAnchor="middle" fontSize={9} style={{ fill: "var(--muted)" }}>alto + muy alto</text>
       </svg>
       <ul className="space-y-1 text-sm">
         {LEVELS.map((l) => (
-          <li key={l} className="flex items-center gap-2">
-            <span className="h-3 w-3 rounded-sm" style={{ background: LEVEL_HEX[l] }} />
-            <span className="w-32 text-gray-700">{LEVEL_LABEL[l]}</span>
-            <b className="tabular-nums">{dist[l]}</b>
-            <span className="text-gray-400 tabular-nums">{pct(dist[l], total)}%</span>
+          <li key={l}>
+            <button type="button" disabled={!onPick || !dist[l]} onClick={() => onPick?.(l)} title={onPick && dist[l] ? "Clic para filtrar el tablero a este nivel" : undefined}
+              className={`flex items-center gap-2 rounded px-1 text-left ${onPick && dist[l] ? "hover:bg-brand-50" : ""} ${active.includes(l) ? "bg-brand-50 ring-1 ring-brand-600" : ""}`}>
+              <span className="h-3 w-3 rounded-sm" style={{ background: LEVEL_HEX[l] }} />
+              <span className="w-32 text-gray-700">{LEVEL_LABEL[l]}</span>
+              <b className="tabular-nums">{dist[l]}</b>
+              <span className="text-gray-400 tabular-nums">{pct(dist[l], total)}%</span>
+            </button>
           </li>
         ))}
       </ul>
@@ -146,7 +151,7 @@ export function BulletBar({ value, cuts, max, prev, label }: { value: number; cu
 }
 
 /* ---------- Radar de dominios (índice 0–5) ---------- */
-export function Radar({ axes, compare }: { axes: { label: string; value: number; raw: string; level: Level }[]; compare?: number[] }) {
+export function Radar({ axes, compare, onPick }: { axes: { label: string; value: number; raw: string; level: Level }[]; compare?: number[]; onPick?: (label: string) => void }) {
   const { show, hide } = useTip();
   const S = 340, c = S / 2, R = 118, n = axes.length;
   const p = (i: number, v: number) => {
@@ -167,10 +172,10 @@ export function Radar({ axes, compare }: { axes: { label: string; value: number;
         const words = a.label.split(" "); const lines: string[] = [];
         for (const w of words) { const l = lines[lines.length - 1]; if (l && (l + " " + w).length <= 20) lines[lines.length - 1] = l + " " + w; else lines.push(w); }
         return (
-          <g key={a.label}>
+          <g key={a.label} className={onPick ? "cursor-pointer" : ""} onClick={() => onPick?.(a.label)}>
             <circle cx={x} cy={y} r={5} style={{ fill: LEVEL_HEX[a.level], stroke: "var(--surface)" }} strokeWidth={2}
-              onMouseMove={(e) => show(e, <><b>{a.label}</b><br />{a.raw} · {LEVEL_LABEL[a.level]}</>)} onMouseLeave={hide} />
-            <text x={lx} y={ly - ((lines.length - 1) * 11) / 2} fontSize={10} textAnchor={Math.abs(lx - c) < 10 ? "middle" : lx > c ? "start" : "end"} dominantBaseline="middle" style={{ fill: "var(--ink-2)" }}>
+              onMouseMove={(e) => show(e, <><b>{a.label}</b><br />{a.raw} · {LEVEL_LABEL[a.level]}{onPick && <><br /><span className="text-gray-500">Clic para ver sus reactivos</span></>}</>)} onMouseLeave={hide} />
+            <text x={lx} y={ly - ((lines.length - 1) * 11) / 2} fontSize={10} textAnchor={Math.abs(lx - c) < 10 ? "middle" : lx > c ? "start" : "end"} dominantBaseline="middle" style={{ fill: onPick ? "var(--brand)" : "var(--ink-2)" }}>
               {lines.map((t, k) => <tspan key={k} x={lx} dy={k ? 11 : 0}>{t}</tspan>)}
             </text>
           </g>
